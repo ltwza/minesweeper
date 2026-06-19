@@ -610,6 +610,22 @@
       background: #c0392b;
     }
 
+    /* Fireworks canvas */
+    #fireworksCanvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 9999;
+      display: none;
+    }
+
+    #fireworksCanvas.active {
+      display: block;
+    }
+
     /* Win / Lose animations */
     @keyframes boardShake {
 
@@ -835,6 +851,9 @@
       </div>
     </div>
   </div>
+
+  <!-- Fireworks Canvas -->
+  <canvas id="fireworksCanvas"></canvas>
 
   <script>
     // ============================================================
@@ -1089,6 +1108,7 @@
         boardWrapper.classList.remove('shake');
         void boardWrapper.offsetWidth; // force reflow
         boardWrapper.classList.add('shake');
+        if (navigator.vibrate) navigator.vibrate(200);
         clearSave();
         return false;
       }
@@ -1109,6 +1129,7 @@
         boardWrapper.classList.remove('win-pulse');
         void boardWrapper.offsetWidth;
         boardWrapper.classList.add('win-pulse');
+        startFireworks();
         // Auto flag remaining mines
         for (let rr = 0; rr < state.rows; rr++) {
           for (let cc = 0; cc < state.cols; cc++) {
@@ -1191,6 +1212,7 @@
             boardWrapper.classList.remove('shake');
             void boardWrapper.offsetWidth;
             boardWrapper.classList.add('shake');
+            if (navigator.vibrate) navigator.vibrate(200);
             clearSave();
           }
         } else {
@@ -1648,6 +1670,95 @@
         flagToggle.click();
       }
     });
+
+    // ============================================================
+    //  Fireworks animation
+    // ============================================================
+    function startFireworks() {
+      const canvas = document.getElementById('fireworksCanvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      canvas.classList.add('active');
+
+      const colors = ['#ff6b6b', '#feca57', '#48dbfb', '#ff9ff3', '#54a0ff', '#5f27cd', '#01a3a4', '#f368e0', '#ff6348', '#7bed9f'];
+      const particles = [];
+      const burstCount = 6;
+      const particleCount = 60;
+      let frame = 0;
+      let animId;
+
+      // Create bursts at random positions
+      for (let b = 0; b < burstCount; b++) {
+        const cx = canvas.width * (0.15 + Math.random() * 0.7);
+        const cy = canvas.height * (0.15 + Math.random() * 0.6);
+        const hue = Math.floor(Math.random() * 360);
+        for (let i = 0; i < particleCount; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = 2 + Math.random() * 6;
+          particles.push({
+            x: cx, y: cy,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            life: 1,
+            decay: 0.008 + Math.random() * 0.015,
+            size: 2 + Math.random() * 4,
+            color: colors[Math.floor(Math.random() * colors.length)],
+          });
+        }
+      }
+
+      function animate() {
+        frame++;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        let alive = false;
+        for (const p of particles) {
+          if (p.life <= 0) continue;
+          alive = true;
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vy += 0.06; // gravity
+          p.vx *= 0.98;
+          p.vy *= 0.98;
+          p.life -= p.decay;
+          ctx.globalAlpha = Math.max(0, p.life);
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+
+        // Spawn 1-2 new bursts per frame while animating
+        if (frame < 120 && frame % 15 === 0) {
+          const cx = canvas.width * (0.15 + Math.random() * 0.7);
+          const cy = canvas.height * (0.15 + Math.random() * 0.6);
+          for (let i = 0; i < 40; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 2 + Math.random() * 5;
+            particles.push({
+              x: cx, y: cy,
+              vx: Math.cos(angle) * speed,
+              vy: Math.sin(angle) * speed,
+              life: 1,
+              decay: 0.01 + Math.random() * 0.018,
+              size: 2 + Math.random() * 4,
+              color: colors[Math.floor(Math.random() * colors.length)],
+            });
+          }
+        }
+
+        if (alive || frame < 150) {
+          animId = requestAnimationFrame(animate);
+        } else {
+          canvas.classList.remove('active');
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+      }
+
+      if (animId) cancelAnimationFrame(animId);
+      animate();
+    }
 
     // ============================================================
     //  Init
