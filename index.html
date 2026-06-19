@@ -684,6 +684,82 @@
       color: #e74c3c;
     }
 
+    /* Settings modal */
+    .settings-group {
+      margin: 14px 0;
+    }
+
+    .settings-group label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 14px;
+      color: #2c3e50;
+      margin-bottom: 4px;
+    }
+
+    .vol-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .vol-row input[type="range"] {
+      flex: 1;
+      accent-color: #2c3e50;
+    }
+
+    .vol-row .vol-label {
+      min-width: 28px;
+      text-align: right;
+      font-weight: 600;
+      color: #2c3e50;
+      font-size: 13px;
+    }
+
+    .track-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .track-options label {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 13px;
+      color: #2c3e50;
+      cursor: pointer;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid #bdc3c7;
+      transition: all 0.2s;
+    }
+
+    .track-options label:hover {
+      background: #dfe6e9;
+    }
+
+    .track-options input[type="radio"] {
+      accent-color: #2c3e50;
+    }
+
+    .btn-settings {
+      background: none;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+      transition: background 0.2s;
+      line-height: 1;
+    }
+
+    .btn-settings:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
     @media (max-width: 500px) {
       .container {
         padding: 10px;
@@ -748,6 +824,7 @@
       <button class="btn-new" id="btnNew">🔄 新游戏</button>
       <button class="flag-toggle show" id="flagToggle"></button>
       <button class="btn-records" id="btnRecords">🏆 通关记录</button>
+      <button class="btn-settings" id="btnSettings">⚙️</button>
     </div>
   </div>
 
@@ -799,6 +876,42 @@
         <div class="form-actions">
           <button class="btn-cancel" id="customCancel">取消</button>
           <button class="btn-apply" id="customApply">✅ 开始游戏</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal">
+      <h2>⚙️ 音效设置</h2>
+      <div class="settings-group">
+        <label>🔊 音效</label>
+        <div class="vol-row">
+          <span>🔈</span>
+          <input type="range" id="sfxVolume" min="0" max="100" value="70">
+          <span class="vol-label" id="sfxVolLabel">70</span>
+        </div>
+      </div>
+      <div class="settings-group">
+        <label>🎵 背景音乐</label>
+        <div class="vol-row">
+          <span>🔈</span>
+          <input type="range" id="bgVolume" min="0" max="100" value="40">
+          <span class="vol-label" id="bgVolLabel">40</span>
+        </div>
+      </div>
+      <div class="settings-group">
+        <label>🎶 背景音轨</label>
+        <div class="track-options" id="bgTrackGroup">
+          <label><input type="radio" name="bgTrack" value="0" checked> 🌅 Rising Dawn</label>
+          <label><input type="radio" name="bgTrack" value="1"> 🌊 In The Zone</label>
+          <label><input type="radio" name="bgTrack" value="2"> 🎮 Games We Used to Play</label>
+        </div>
+        <div style="font-size:10px;color:#999;margin-top:6px;line-height:1.4;">
+          背景音乐采用 <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" style="color:#999;">CC BY
+            4.0</a> 许可，作者：Ethereal 88 / FSM Team，来自 <a href="https://www.free-stock-music.com" target="_blank"
+            style="color:#999;">free-stock-music.com</a>
         </div>
       </div>
     </div>
@@ -878,6 +991,160 @@
   const flagToggle = document.getElementById('flagToggle');
   const recordsModal = document.getElementById('recordsModal');
   const recordsBody = document.getElementById('recordsBody');
+
+  // ============================================================
+  //  Audio Manager (Web Audio API, zero external files)
+  // ============================================================
+  const AudioManager = {
+    _ctx: null,
+    _sfxGain: null,
+    _bgGain: null,
+    _bgPlaying: false,
+    _bgAudio: null,
+    _bgVolume: 0.4,
+    _sfxVolume: 0.7,
+    _bgTrack: 0,
+    _bgTracks: [
+      'bg1.mp3',
+      'bg2.mp3',
+      'bg3.mp3'
+    ],
+
+    _ctxReady() {
+      if (!this._ctx) {
+        const Ctor = window.AudioContext || window.webkitAudioContext;
+        if (!Ctor) return false;
+        this._ctx = new Ctor();
+        this._sfxGain = this._ctx.createGain();
+        this._sfxGain.gain.value = this._sfxVolume;
+        this._sfxGain.connect(this._ctx.destination);
+        this._bgGain = this._ctx.createGain();
+        this._bgGain.gain.value = this._bgVolume;
+        this._bgGain.connect(this._ctx.destination);
+      }
+      if (this._ctx.state === 'suspended') this._ctx.resume();
+      return true;
+    },
+
+    setSfxVolume(v) {
+      this._sfxVolume = v;
+      if (this._sfxGain) this._sfxGain.gain.setValueAtTime(v, this._ctx.currentTime);
+    },
+
+    setBgVolume(v) {
+      this._bgVolume = v;
+      if (this._bgAudio) this._bgAudio.volume = v;
+      if (this._bgGain) this._bgGain.gain.setValueAtTime(v, this._ctx.currentTime);
+    },
+
+    // —— Click sound: gentle short tap ——
+    playClick() {
+      if (!this._ctxReady()) return;
+      const t = this._ctx.currentTime;
+      const osc = this._ctx.createOscillator();
+      const gain = this._ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(660, t);
+      osc.frequency.exponentialRampToValueAtTime(440, t + 0.06);
+      gain.gain.setValueAtTime(0.3 * this._sfxVolume, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+      osc.connect(gain).connect(this._sfxGain);
+      osc.start(t);
+      osc.stop(t + 0.08);
+    },
+
+    // —— Flag sound: slightly different pitch ——
+    playFlag() {
+      if (!this._ctxReady()) return;
+      const t = this._ctx.currentTime;
+      const osc = this._ctx.createOscillator();
+      const gain = this._ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(880, t);
+      osc.frequency.exponentialRampToValueAtTime(660, t + 0.08);
+      gain.gain.setValueAtTime(0.25 * this._sfxVolume, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+      osc.connect(gain).connect(this._sfxGain);
+      osc.start(t);
+      osc.stop(t + 0.1);
+    },
+
+    // —— Explosion: low rumble + noise burst ——
+    playExplosion() {
+      if (!this._ctxReady()) return;
+      const t = this._ctx.currentTime;
+      // Low rumble
+      const osc = this._ctx.createOscillator();
+      const g1 = this._ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(120, t);
+      osc.frequency.exponentialRampToValueAtTime(30, t + 0.35);
+      g1.gain.setValueAtTime(0.5 * this._sfxVolume, t);
+      g1.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+      osc.connect(g1).connect(this._sfxGain);
+      osc.start(t);
+      osc.stop(t + 0.35);
+      // Noise burst
+      const bufferSize = this._ctx.sampleRate * 0.3;
+      const buffer = this._ctx.createBuffer(1, bufferSize, this._ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+      const noise = this._ctx.createBufferSource();
+      const g2 = this._ctx.createGain();
+      noise.buffer = buffer;
+      g2.gain.setValueAtTime(0.3 * this._sfxVolume, t);
+      g2.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+      noise.connect(g2).connect(this._sfxGain);
+      noise.start(t);
+    },
+
+    // —— Win jingle: ascending cheerful notes ——
+    playWin() {
+      if (!this._ctxReady()) return;
+      const t = this._ctx.currentTime;
+      const notes = [523, 659, 784, 1047]; // C5, E5, G5, C6
+      notes.forEach((freq, i) => {
+        const osc = this._ctx.createOscillator();
+        const g = this._ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        const start = t + i * 0.15;
+        g.gain.setValueAtTime(0.35 * this._sfxVolume, start);
+        g.gain.exponentialRampToValueAtTime(0.001, start + 0.25);
+        osc.connect(g).connect(this._sfxGain);
+        osc.start(start);
+        osc.stop(start + 0.25);
+      });
+    },
+
+    // —— Background music ——
+    setBgTrack(index) {
+      if (this._bgTrack === index) return;
+      const wasPlaying = this._bgPlaying;
+      this.stopBg();
+      this._bgTrack = index;
+      if (wasPlaying) this.startBg();
+    },
+
+    startBg() {
+      if (this._bgAudio) return;
+      this._bgPlaying = true;
+      const url = this._bgTracks[this._bgTrack];
+      if (!url) return;
+      this._bgAudio = new Audio(url);
+      this._bgAudio.loop = true;
+      this._bgAudio.volume = this._bgVolume;
+      this._bgAudio.play().catch(() => { });
+    },
+
+    stopBg() {
+      this._bgPlaying = false;
+      if (this._bgAudio) {
+        this._bgAudio.pause();
+        this._bgAudio = null;
+      }
+    },
+  };
 
   // ============================================================
   //  Helpers
@@ -1009,6 +1276,8 @@
   function initGame(diffKey, keepSave = false) {
     // Stop any running timer
     stopTimer();
+    // Stop background music if playing
+    AudioManager.stopBg();
 
     // Apply custom config if needed
     if (diffKey === 'custom') {
@@ -1051,7 +1320,6 @@
     startTimer();
     // Reveal first cell
     revealCell(firstR, firstC);
-    // Don't overwrite status if the first click already won (e.g. tiny board)
     if (state.gameOver) return;
     statusMsg.textContent = '游戏进行中...';
     statusMsg.className = 'status-msg';
@@ -1071,6 +1339,8 @@
     }
 
     if (cell.mine) {
+      AudioManager.playExplosion();
+      AudioManager.stopBg();
       // Game over
       cell._hit = true;
       revealAllMines(state.board, state.rows, state.cols, r, c);
@@ -1090,6 +1360,7 @@
     }
 
     // Flood fill
+    AudioManager.playClick();
     const revealed = floodFill(state.board, state.rows, state.cols, r, c);
     state.revealedCount += revealed;
     renderBoard();
@@ -1097,6 +1368,8 @@
 
     // Check win
     if (checkWin(state.board, state.rows, state.cols, state.totalMines)) {
+      AudioManager.playWin();
+      AudioManager.stopBg();
       state.status = 'won';
       state.gameOver = true;
       stopTimer();
@@ -1132,6 +1405,7 @@
     const cell = state.board[r][c];
     if (cell.revealed) return;
     cell.flagged = !cell.flagged;
+    AudioManager.playFlag();
     state.flagsPlaced += cell.flagged ? 1 : -1;
     renderBoard();
     updateInfoBar();
@@ -1179,6 +1453,8 @@
         if (remaining <= 0) {
           // Time's up → game over
           stopTimer();
+          AudioManager.stopBg();
+          AudioManager.playExplosion();
           state.status = 'lost';
           state.gameOver = true;
           statusMsg.textContent = '⏰ 时间到！游戏结束';
@@ -1647,6 +1923,47 @@
     }
   });
 
+  // ---- Settings modal ----
+  const settingsModal = document.getElementById('settingsModal');
+  const sfxSlider = document.getElementById('sfxVolume');
+  const bgSlider = document.getElementById('bgVolume');
+  const sfxLabel = document.getElementById('sfxVolLabel');
+  const bgLabel = document.getElementById('bgVolLabel');
+
+  document.getElementById('btnSettings').addEventListener('click', () => {
+    sfxSlider.value = Math.round(AudioManager._sfxVolume * 100);
+    bgSlider.value = Math.round(AudioManager._bgVolume * 100);
+    sfxLabel.textContent = sfxSlider.value;
+    bgLabel.textContent = bgSlider.value;
+    // Select current bg track
+    const radios = document.querySelectorAll('input[name="bgTrack"]');
+    radios.forEach(r => r.checked = parseInt(r.value) === AudioManager._bgTrack);
+    settingsModal.classList.add('show');
+  });
+
+  sfxSlider.addEventListener('input', () => {
+    const v = parseFloat(sfxSlider.value) / 100;
+    sfxLabel.textContent = sfxSlider.value;
+    AudioManager.setSfxVolume(v);
+  });
+
+  bgSlider.addEventListener('input', () => {
+    const v = parseFloat(bgSlider.value) / 100;
+    bgLabel.textContent = bgSlider.value;
+    AudioManager.setBgVolume(v);
+  });
+
+  // BGM track selection
+  document.querySelectorAll('input[name="bgTrack"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      AudioManager.setBgTrack(parseInt(radio.value));
+    });
+  });
+
+  settingsModal.addEventListener('click', (e) => {
+    if (e.target === settingsModal) settingsModal.classList.remove('show');
+  });
+
   // ============================================================
   //  Fireworks animation (DOM-based confetti, no canvas issues)
   // ============================================================
@@ -1754,6 +2071,15 @@
   // ============================================================
   //  Init
   // ============================================================
+  // Start background music on the very first user click (browser autoplay policy)
+  (function initBgOnFirstClick() {
+    const handler = () => {
+      AudioManager.startBg();
+      document.removeEventListener('click', handler);
+    };
+    document.addEventListener('click', handler);
+  })();
+
   window.addEventListener('DOMContentLoaded', () => {
     // Check saved game first — don't init yet if we need to resume
     if (hasSavedGame()) {
