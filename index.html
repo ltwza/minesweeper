@@ -1,10 +1,13 @@
 <!DOCTYPE html>
-<!-- 扫雷游戏 © ltwza -->
+<!-- 扫雷游戏 © ltwza | v=1.0 -->
 <html lang="zh-CN">
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>扫雷</title>
   <style>
     * {
@@ -1024,8 +1027,19 @@
           <label><input type="radio" name="bgTrack" value="0" checked> 🌅 Rising Dawn</label>
           <label><input type="radio" name="bgTrack" value="1"> 🌊 In The Zone</label>
           <label><input type="radio" name="bgTrack" value="2"> 🎮 Games We Used to Play</label>
+          <label id="customTrackLabel" style="display:none">
+            <input type="radio" name="bgTrack" value="3"> <span id="customTrackName"></span>
+          </label>
         </div>
-        <div style="font-size:10px;color:#999;margin-top:6px;line-height:1.4;">
+        <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;">
+          <label class="btn-new" style="font-size:12px;padding:4px 10px;cursor:pointer;display:inline-block;">
+            📂 选择本地音乐
+            <input type="file" id="customTrackFile" accept="audio/*" style="display:none">
+          </label>
+          <button class="btn-new" id="removeCustomTrackBtn"
+            style="font-size:12px;padding:4px 10px;display:none;background:#e74c3c;">🗑️ 移除</button>
+        </div>
+        <div style="font-size:10px;color:#999;margin-top:4px;line-height:1.4;">
           背景音乐采用 <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" style="color:#999;">CC BY
             4.0</a> 许可，作者：Ethereal 88 / FSM Team，来自 <a href="https://www.free-stock-music.com" target="_blank"
             style="color:#999;">free-stock-music.com</a>
@@ -1082,10 +1096,12 @@
   // ============================================================
   function saveSettings() {
     try {
+      // Never save track 3 if there's no custom track file
+      const bgTrack = (AudioManager._bgTrack === 3 && !AudioManager._customBuffer) ? 0 : AudioManager._bgTrack;
       localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify({
         sfxVolume: AudioManager._sfxVolume,
         bgVolume: AudioManager._bgVolume,
-        bgTrack: AudioManager._bgTrack,
+        bgTrack: bgTrack,
       }));
     } catch { }
   }
@@ -1098,6 +1114,55 @@
       if (typeof s.bgVolume === 'number') AudioManager.setBgVolume(s.bgVolume);
       if (typeof s.bgTrack === 'number') AudioManager.setBgTrack(s.bgTrack);
     } catch { }
+  }
+
+  // ============================================================
+  //  Custom Track persistence (IndexedDB)
+  // ============================================================
+  const CUSTOM_TRACK_DB = 'ms_custom_track_db';
+  const CUSTOM_TRACK_STORE = 'tracks';
+
+  function openTrackDB() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(CUSTOM_TRACK_DB, 1);
+      req.onupgradeneeded = () => req.result.createObjectStore(CUSTOM_TRACK_STORE);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function saveCustomTrack(file) {
+    const db = await openTrackDB();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const tx = db.transaction(CUSTOM_TRACK_STORE, 'readwrite');
+        tx.objectStore(CUSTOM_TRACK_STORE).put({ data: reader.result, name: file.name, type: file.type }, 'audio');
+        tx.oncomplete = () => resolve(reader.result); // return ArrayBuffer
+        tx.onerror = () => reject(tx.error);
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  async function loadCustomTrack() {
+    const db = await openTrackDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(CUSTOM_TRACK_STORE, 'readonly');
+      const req = tx.objectStore(CUSTOM_TRACK_STORE).get('audio');
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => resolve(null);
+    });
+  }
+
+  async function removeCustomTrack() {
+    const db = await openTrackDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(CUSTOM_TRACK_STORE, 'readwrite');
+      tx.objectStore(CUSTOM_TRACK_STORE).delete('audio');
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
   }
 
   // ============================================================
@@ -1141,10 +1206,13 @@
     _sfxGain: null,
     _bgGain: null,
     _bgPlaying: false,
-    _bgAudio: null,
+    _bgAudio: null,          // <audio> element for preset MP3 tracks
+    _bgSource: null,         // BufferSourceNode for custom track
     _bgVolume: 0.15,
     _sfxVolume: 0.7,
     _bgTrack: 0,
+    _customBuffer: null,     // decoded AudioBuffer for custom track
+    _customTrackName: '',
     _bgTracks: [
       'bg1.mp3',
       'bg2.mp3',
@@ -1176,6 +1244,70 @@
       this._bgVolume = v;
       if (this._bgAudio) this._bgAudio.volume = v;
       if (this._bgGain) this._bgGain.gain.setValueAtTime(v, this._ctx.currentTime);
+    },
+
+    // —— Decode custom track ArrayBuffer into AudioBuffer ——
+    async setCustomTrack(data, name) {
+      if (!this._ctxReady()) { this._customTrackName = ''; return; }
+      try {
+        const buffer = await this._ctx.decodeAudioData(data.slice(0));
+        this._customBuffer = buffer;
+        this._customTrackName = name;
+      } catch (e) {
+        console.warn('decodeAudioData failed:', e);
+        this._customBuffer = null;
+        this._customTrackName = '';
+      }
+    },
+
+    removeCustomTrack() {
+      this._customBuffer = null;
+      this._customTrackName = '';
+    },
+
+    // —— Background music ——
+    setBgTrack(index) {
+      if (this._bgTrack === index) return;
+      const wasPlaying = this._bgPlaying;
+      this.stopBg();
+      this._bgTrack = index;
+      if (wasPlaying) this.startBg();
+    },
+
+    startBg() {
+      if (this._bgAudio || this._bgSource) this.stopBg();
+      this._bgPlaying = true;
+      if (this._bgTrack === 3 && this._customBuffer) {
+        // Custom track: use Web Audio API BufferSourceNode (no blob URL, no ERR_ABORTED)
+        if (!this._ctxReady()) return;
+        this._bgSource = this._ctx.createBufferSource();
+        this._bgSource.buffer = this._customBuffer;
+        this._bgSource.loop = true;
+        this._bgSource.connect(this._bgGain);
+        this._bgSource.start();
+      } else if (this._bgTrack < this._bgTracks.length) {
+        // Preset MP3: use <audio> element
+        const url = this._bgTracks[this._bgTrack];
+        this._bgAudio = new Audio(url);
+        this._bgAudio.loop = true;
+        this._bgAudio.volume = this._bgVolume;
+        this._bgAudio.play().catch(e => console.warn('BGM play:', e.message));
+      }
+    },
+
+    stopBg() {
+      this._bgPlaying = false;
+      if (this._bgAudio) {
+        this._bgAudio.pause();
+        this._bgAudio.removeAttribute('src');
+        try { this._bgAudio.load(); } catch (e) { /* ignore */ }
+        this._bgAudio = null;
+      }
+      if (this._bgSource) {
+        try { this._bgSource.stop(); } catch (e) { /* already stopped */ }
+        this._bgSource.disconnect();
+        this._bgSource = null;
+      }
     },
 
     // —— Click sound: gentle short tap ——
@@ -1261,34 +1393,6 @@
         osc.start(start);
         osc.stop(start + 0.25);
       });
-    },
-
-    // —— Background music ——
-    setBgTrack(index) {
-      if (this._bgTrack === index) return;
-      const wasPlaying = this._bgPlaying;
-      this.stopBg();
-      this._bgTrack = index;
-      if (wasPlaying) this.startBg();
-    },
-
-    startBg() {
-      if (this._bgAudio) return;
-      this._bgPlaying = true;
-      const url = this._bgTracks[this._bgTrack];
-      if (!url) return;
-      this._bgAudio = new Audio(url);
-      this._bgAudio.loop = true;
-      this._bgAudio.volume = this._bgVolume;
-      this._bgAudio.play().catch(() => { });
-    },
-
-    stopBg() {
-      this._bgPlaying = false;
-      if (this._bgAudio) {
-        this._bgAudio.pause();
-        this._bgAudio = null;
-      }
     },
   };
 
@@ -2211,6 +2315,21 @@
   const bgSlider = document.getElementById('bgVolume');
   const sfxLabel = document.getElementById('sfxVolLabel');
   const bgLabel = document.getElementById('bgVolLabel');
+  const customTrackFile = document.getElementById('customTrackFile');
+  const customTrackLabel = document.getElementById('customTrackLabel');
+  const customTrackNameEl = document.getElementById('customTrackName');
+  const removeCustomTrackBtn = document.getElementById('removeCustomTrackBtn');
+
+  function refreshCustomTrackUI() {
+    const has = !!AudioManager._customBuffer;
+    customTrackLabel.style.display = has ? '' : 'none';
+    removeCustomTrackBtn.style.display = has ? '' : 'none';
+    if (has) {
+      customTrackNameEl.textContent = `📁 ${AudioManager._customTrackName}`;
+      const radio = customTrackLabel.querySelector('input');
+      radio.checked = AudioManager._bgTrack === 3;
+    }
+  }
 
   document.getElementById('btnSettingsTop').addEventListener('click', () => {
     sfxSlider.value = Math.round(AudioManager._sfxVolume * 100);
@@ -2220,7 +2339,46 @@
     // Select current bg track
     const radios = document.querySelectorAll('input[name="bgTrack"]');
     radios.forEach(r => r.checked = parseInt(r.value) === AudioManager._bgTrack);
+    refreshCustomTrackUI();
     settingsModal.classList.add('show');
+  });
+
+  // Custom track file picker
+  customTrackFile.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      // Save to IndexedDB + decode via AudioContext
+      const data = await saveCustomTrack(file);
+      await AudioManager.setCustomTrack(data, file.name);
+      // Start playing custom track
+      const wasPlaying = AudioManager._bgPlaying;
+      AudioManager.stopBg();
+      AudioManager._bgTrack = 3;
+      if (wasPlaying) AudioManager.startBg();
+      saveSettings();
+      refreshCustomTrackUI();
+      document.querySelectorAll('input[name="bgTrack"]').forEach(r => r.checked = parseInt(r.value) === 3);
+    } catch (err) {
+      console.error('Custom track error:', err);
+      alert('无法读取音频文件，请选择其他文件');
+    }
+    customTrackFile.value = '';
+  });
+
+  // Remove custom track
+  removeCustomTrackBtn.addEventListener('click', async () => {
+    const wasCustom = AudioManager._bgTrack === 3;
+    if (wasCustom) AudioManager.stopBg();
+    AudioManager.removeCustomTrack();          // revokes blob URL
+    await removeCustomTrack();                 // clears IndexedDB
+    if (wasCustom) {
+      AudioManager._bgTrack = 0;
+      AudioManager.startBg();
+      saveSettings();
+    }
+    refreshCustomTrackUI();
+    document.querySelectorAll('input[name="bgTrack"]').forEach(r => r.checked = parseInt(r.value) === AudioManager._bgTrack);
   });
 
   sfxSlider.addEventListener('input', () => {
@@ -2357,10 +2515,17 @@
   //  Init
   // ============================================================
   // Start background music on the very first user click (browser autoplay policy)
+  let _bgmReady = false;
   (function initBgOnFirstClick() {
+    // Wait for custom track to finish decoding before enabling first-click BGM
     const handler = () => {
-      AudioManager.startBg();
       document.removeEventListener('click', handler);
+      if (!_bgmReady) {
+        // Custom track not yet decoded — retry shortly
+        setTimeout(() => { if (!AudioManager._bgPlaying) AudioManager.startBg(); }, 500);
+      } else {
+        AudioManager.startBg();
+      }
     };
     document.addEventListener('click', handler);
   })();
@@ -2368,6 +2533,19 @@
   window.addEventListener('DOMContentLoaded', () => {
     // Restore saved settings (volume, track)
     loadSettings();
+
+    // Restore custom track from IndexedDB (async)
+    loadCustomTrack().then(async saved => {
+      if (saved) {
+        // Decode audio immediately so it's ready for first click
+        await AudioManager.setCustomTrack(saved.data, saved.name);
+        // If user already clicked and startBg failed because no buffer yet, retry
+        if (AudioManager._bgTrack === 3 && AudioManager._bgPlaying && !AudioManager._bgAudio && !AudioManager._bgSource) {
+          AudioManager.startBg();
+        }
+      }
+      _bgmReady = true;
+    });
 
     // Check saved game first — don't init yet if we need to resume
     if (hasSavedGame()) {
