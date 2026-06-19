@@ -605,6 +605,94 @@
       background: #c0392b;
     }
 
+    /* Confirm dialog (reuses toast-card from resume-toast) */
+    .confirm-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.4);
+      z-index: 1001;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .confirm-overlay.show {
+      display: flex;
+    }
+
+    .confirm-overlay .toast-card {
+      animation: popIn 0.2s ease;
+    }
+
+    /* Win / Lose animations */
+    @keyframes boardShake {
+
+      0%,
+      100% {
+        transform: translateX(0);
+      }
+
+      20% {
+        transform: translateX(-6px);
+      }
+
+      40% {
+        transform: translateX(6px);
+      }
+
+      60% {
+        transform: translateX(-4px);
+      }
+
+      80% {
+        transform: translateX(4px);
+      }
+    }
+
+    @keyframes boardWinPulse {
+      0% {
+        box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.6);
+      }
+
+      70% {
+        box-shadow: 0 0 0 20px rgba(46, 204, 113, 0);
+      }
+
+      100% {
+        box-shadow: 0 0 0 0 rgba(46, 204, 113, 0);
+      }
+    }
+
+    .board-wrapper.shake {
+      animation: boardShake 0.4s ease;
+    }
+
+    .board-wrapper.win-pulse {
+      animation: boardWinPulse 0.8s ease 2;
+    }
+
+    @keyframes statusBounce {
+      0% {
+        transform: scale(1);
+      }
+
+      50% {
+        transform: scale(1.15);
+      }
+
+      100% {
+        transform: scale(1);
+      }
+    }
+
+    .status-msg.win,
+    .status-msg.lose {
+      animation: statusBounce 0.5s ease;
+    }
+
     .status-msg {
       font-size: 13px;
       font-weight: 600;
@@ -748,6 +836,17 @@
       <div class="toast-buttons">
         <button class="btn-yes" id="resumeYes">继续</button>
         <button class="btn-no" id="resumeNo">重新开始</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm Dialog -->
+  <div class="confirm-overlay" id="confirmDialog">
+    <div class="toast-card">
+      <span class="toast-text" id="confirmMsg"></span>
+      <div class="toast-buttons">
+        <button class="btn-yes" id="confirmOk">确定</button>
+        <button class="btn-no" id="confirmCancel">取消</button>
       </div>
     </div>
   </div>
@@ -1002,6 +1101,9 @@
         statusMsg.textContent = '💥 踩雷了！游戏结束';
         statusMsg.className = 'status-msg lose';
         renderBoard();
+        boardWrapper.classList.remove('shake');
+        void boardWrapper.offsetWidth; // force reflow
+        boardWrapper.classList.add('shake');
         clearSave();
         return false;
       }
@@ -1019,6 +1121,9 @@
         stopTimer();
         statusMsg.textContent = '🎉 恭喜通关！';
         statusMsg.className = 'status-msg win';
+        boardWrapper.classList.remove('win-pulse');
+        void boardWrapper.offsetWidth;
+        boardWrapper.classList.add('win-pulse');
         // Auto flag remaining mines
         for (let rr = 0; rr < state.rows; rr++) {
           for (let cc = 0; cc < state.cols; cc++) {
@@ -1098,6 +1203,9 @@
             statusMsg.className = 'status-msg lose';
             revealAllMines(state.board, state.rows, state.cols, -1, -1);
             renderBoard();
+            boardWrapper.classList.remove('shake');
+            void boardWrapper.offsetWidth;
+            boardWrapper.classList.add('shake');
             clearSave();
           }
         } else {
@@ -1358,6 +1466,32 @@
       try { return localStorage.getItem(STORAGE_KEYS.save) !== null; } catch { return false; }
     }
 
+    // ---- Confirm dialog (replaces native confirm()) ----
+    function showConfirm(msg) {
+      return new Promise((resolve) => {
+        const dialog = document.getElementById('confirmDialog');
+        const msgEl = document.getElementById('confirmMsg');
+        const okBtn = document.getElementById('confirmOk');
+        const cancelBtn = document.getElementById('confirmCancel');
+
+        msgEl.textContent = msg;
+        dialog.classList.add('show');
+
+        const cleanup = (result) => {
+          dialog.classList.remove('show');
+          okBtn.removeEventListener('click', onOk);
+          cancelBtn.removeEventListener('click', onCancel);
+          resolve(result);
+        };
+
+        const onOk = () => cleanup(true);
+        const onCancel = () => cleanup(false);
+
+        okBtn.addEventListener('click', onOk);
+        cancelBtn.addEventListener('click', onCancel);
+      });
+    }
+
     // ---- Custom config ----
     function getCustomConfig() {
       try {
@@ -1436,20 +1570,20 @@
 
     // Difficulty buttons
     document.querySelectorAll('.difficulty-bar button').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const diff = btn.dataset.diff;
         if (diff === state.difficulty && state.firstClick) return;
         // Custom: show settings modal
         if (diff === 'custom') {
           if (state.status === 'playing') {
-            if (!confirm('当前游戏正在进行中，确定要修改设置吗？')) return;
+            if (!await showConfirm('当前游戏正在进行中，确定要修改设置吗？')) return;
           }
           openCustomModal();
           return;
         }
         // Check if game in progress
         if (state.status === 'playing') {
-          if (!confirm('当前游戏正在进行中，确定要开始新游戏吗？')) return;
+          if (!await showConfirm('当前游戏正在进行中，确定要开始新游戏吗？')) return;
         }
         clearSave();
         initGame(diff);
@@ -1457,9 +1591,9 @@
     });
 
     // New game button
-    document.getElementById('btnNew').addEventListener('click', () => {
+    document.getElementById('btnNew').addEventListener('click', async () => {
       if (state.status === 'playing') {
-        if (!confirm('当前游戏正在进行中，确定要重新开始吗？')) return;
+        if (!await showConfirm('当前游戏正在进行中，确定要重新开始吗？')) return;
       }
       clearSave();
       initGame(state.difficulty);
