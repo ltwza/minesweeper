@@ -897,8 +897,8 @@
         <label>🎵 背景音乐</label>
         <div class="vol-row">
           <span>🔈</span>
-          <input type="range" id="bgVolume" min="0" max="100" value="40">
-          <span class="vol-label" id="bgVolLabel">40</span>
+          <input type="range" id="bgVolume" min="0" max="100" value="15">
+          <span class="vol-label" id="bgVolLabel">15</span>
         </div>
       </div>
       <div class="settings-group">
@@ -1001,7 +1001,7 @@
     _bgGain: null,
     _bgPlaying: false,
     _bgAudio: null,
-    _bgVolume: 0.4,
+    _bgVolume: 0.15,
     _sfxVolume: 0.7,
     _bgTrack: 0,
     _bgTracks: [
@@ -1069,32 +1069,37 @@
       osc.stop(t + 0.1);
     },
 
-    // —— Explosion: low rumble + noise burst ——
+    // —— Explosion: clean "彭" thump ——
     playExplosion() {
       if (!this._ctxReady()) return;
       const t = this._ctx.currentTime;
-      // Low rumble
+      // Deep thump: sine sweep 120→30Hz, boosted gain
       const osc = this._ctx.createOscillator();
       const g1 = this._ctx.createGain();
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(120, t);
-      osc.frequency.exponentialRampToValueAtTime(30, t + 0.35);
-      g1.gain.setValueAtTime(0.5 * this._sfxVolume, t);
-      g1.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(150, t);
+      osc.frequency.exponentialRampToValueAtTime(30, t + 0.18);
+      g1.gain.setValueAtTime(1.2 * this._sfxVolume, t);
+      g1.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
       osc.connect(g1).connect(this._sfxGain);
       osc.start(t);
-      osc.stop(t + 0.35);
-      // Noise burst
-      const bufferSize = this._ctx.sampleRate * 0.3;
+      osc.stop(t + 0.25);
+      // Noise impact with low-pass
+      const bufferSize = this._ctx.sampleRate * 0.2;
       const buffer = this._ctx.createBuffer(1, bufferSize, this._ctx.sampleRate);
       const data = buffer.getChannelData(0);
-      for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+      }
       const noise = this._ctx.createBufferSource();
       const g2 = this._ctx.createGain();
+      const lp = this._ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 600;
       noise.buffer = buffer;
-      g2.gain.setValueAtTime(0.3 * this._sfxVolume, t);
-      g2.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
-      noise.connect(g2).connect(this._sfxGain);
+      g2.gain.setValueAtTime(0.6 * this._sfxVolume, t);
+      g2.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+      noise.connect(lp).connect(g2).connect(this._sfxGain);
       noise.start(t);
     },
 
@@ -1276,8 +1281,6 @@
   function initGame(diffKey, keepSave = false) {
     // Stop any running timer
     stopTimer();
-    // Stop background music if playing
-    AudioManager.stopBg();
 
     // Apply custom config if needed
     if (diffKey === 'custom') {
@@ -1340,7 +1343,6 @@
 
     if (cell.mine) {
       AudioManager.playExplosion();
-      AudioManager.stopBg();
       // Game over
       cell._hit = true;
       revealAllMines(state.board, state.rows, state.cols, r, c);
@@ -1369,7 +1371,6 @@
     // Check win
     if (checkWin(state.board, state.rows, state.cols, state.totalMines)) {
       AudioManager.playWin();
-      AudioManager.stopBg();
       state.status = 'won';
       state.gameOver = true;
       stopTimer();
@@ -1453,7 +1454,6 @@
         if (remaining <= 0) {
           // Time's up → game over
           stopTimer();
-          AudioManager.stopBg();
           AudioManager.playExplosion();
           state.status = 'lost';
           state.gameOver = true;
