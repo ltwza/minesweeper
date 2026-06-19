@@ -1,0 +1,1519 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>扫雷</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: #2c3e50;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #333;
+      user-select: none;
+    }
+
+    .container {
+      background: #ecf0f1;
+      border-radius: 14px;
+      padding: 20px 24px 24px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      max-width: 98vw;
+      max-height: 98vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 {
+      font-size: 22px;
+      color: #2c3e50;
+      margin-bottom: 8px;
+      letter-spacing: 2px;
+    }
+
+    .difficulty-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .difficulty-bar button {
+      padding: 5px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: #bdc3c7;
+      color: #2c3e50;
+    }
+
+    .difficulty-bar button:hover {
+      opacity: 0.85;
+    }
+
+    .difficulty-bar button.active {
+      background: #2c3e50;
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(44, 62, 80, 0.4);
+    }
+
+    .info-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      margin-bottom: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      background: #34495e;
+      color: #fff;
+      padding: 6px 14px;
+      border-radius: 6px;
+      min-height: 36px;
+      gap: 10px;
+    }
+
+    .info-bar .mine-count {
+      color: #e74c3c;
+    }
+
+    .info-bar .timer {
+      color: #f1c40f;
+      font-family: 'Courier New', monospace;
+      letter-spacing: 1px;
+    }
+
+    .info-bar .timer.danger {
+      color: #e74c3c;
+      animation: blink 0.6s infinite;
+    }
+
+    @keyframes blink {
+      50% {
+        opacity: 0.4;
+      }
+    }
+
+    .board-wrapper {
+      position: relative;
+      overflow: auto;
+      border: 2px solid #34495e;
+      border-radius: 6px;
+      background: #95a5a6;
+      touch-action: manipulation;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .board {
+      display: inline-grid;
+      gap: 1px;
+      background: #95a5a6;
+      margin: 2px;
+    }
+
+    .cell {
+      width: var(--cell-size);
+      height: var(--cell-size);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: calc(var(--cell-size) * 0.5);
+      font-weight: 800;
+      cursor: pointer;
+      background: #bdc3c7;
+      border: none;
+      transition: background 0.08s;
+      border-radius: 1px;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      line-height: 1;
+    }
+
+    .cell.hidden:hover {
+      background: #aeb6bf;
+    }
+
+    .cell.hidden:active {
+      background: #95a5a6;
+    }
+
+    .cell.revealed {
+      background: #dfe6e9;
+      cursor: default;
+    }
+
+    .cell.revealed.n0 {
+      background: #dfe6e9;
+    }
+
+    .cell.revealed.n1 {
+      color: #2980b9;
+    }
+
+    .cell.revealed.n2 {
+      color: #27ae60;
+    }
+
+    .cell.revealed.n3 {
+      color: #e74c3c;
+    }
+
+    .cell.revealed.n4 {
+      color: #8e44ad;
+    }
+
+    .cell.revealed.n5 {
+      color: #d35400;
+    }
+
+    .cell.revealed.n6 {
+      color: #16a085;
+    }
+
+    .cell.revealed.n7 {
+      color: #2c3e50;
+    }
+
+    .cell.revealed.n8 {
+      color: #7f8c8d;
+    }
+
+    .cell.flagged {
+      background: #f9e79f;
+    }
+
+    .cell.flagged::after {
+      content: '🚩';
+      font-size: calc(var(--cell-size) * 0.48);
+    }
+
+    .cell.mine {
+      background: #e74c3c;
+    }
+
+    .cell.mine::after {
+      content: '💣';
+      font-size: calc(var(--cell-size) * 0.48);
+    }
+
+    .cell.mine-revealed {
+      background: #f5b7b1;
+    }
+
+    .cell.mine-revealed::after {
+      content: '💣';
+      font-size: calc(var(--cell-size) * 0.48);
+    }
+
+    .cell.mine-hit {
+      background: #e74c3c;
+      animation: hitFlash 0.5s;
+    }
+
+    .cell.mine-hit::after {
+      content: '💥';
+      font-size: calc(var(--cell-size) * 0.48);
+    }
+
+    @keyframes hitFlash {
+
+      0%,
+      100% {
+        background: #e74c3c;
+      }
+
+      50% {
+        background: #fff;
+      }
+    }
+
+    .bottom-bar {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+      width: 100%;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .bottom-bar button {
+      padding: 6px 20px;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-new {
+      background: #3498db;
+      color: #fff;
+    }
+
+    .btn-new:hover {
+      background: #2980b9;
+    }
+
+    .btn-records {
+      background: #9b59b6;
+      color: #fff;
+    }
+
+    .btn-records:hover {
+      background: #8e44ad;
+    }
+
+    .btn-resume {
+      background: #e67e22;
+      color: #fff;
+    }
+
+    .btn-resume:hover {
+      background: #d35400;
+    }
+
+    .flag-toggle {
+      display: none;
+      padding: 6px 14px;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      background: #f39c12;
+      color: #fff;
+      transition: all 0.15s;
+    }
+
+    .flag-toggle.active {
+      background: #e67e22;
+      box-shadow: 0 0 0 2px #fff, 0 0 0 4px #e67e22;
+    }
+
+    .flag-toggle.show {
+      display: inline-block;
+    }
+
+    .flag-toggle::before {
+      content: '🚩 插旗';
+    }
+
+    .flag-toggle.active::before {
+      content: '🚩 插旗中';
+    }
+
+    /* Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      backdrop-filter: blur(2px);
+    }
+
+    .modal-overlay.show {
+      display: flex;
+    }
+
+    .modal {
+      background: #fff;
+      border-radius: 14px;
+      padding: 24px 28px;
+      max-width: 480px;
+      width: 100%;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+      animation: modalIn 0.2s ease;
+    }
+
+    @keyframes modalIn {
+      from {
+        transform: scale(0.92);
+        opacity: 0;
+      }
+
+      to {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    .modal h2 {
+      font-size: 20px;
+      color: #2c3e50;
+      margin-bottom: 14px;
+      text-align: center;
+    }
+
+    .modal table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .modal th {
+      background: #34495e;
+      color: #fff;
+      padding: 8px 6px;
+      text-align: center;
+      font-size: 12px;
+    }
+
+    .modal td {
+      padding: 8px 6px;
+      text-align: center;
+      border-bottom: 1px solid #eee;
+      font-size: 13px;
+    }
+
+    .modal tr:hover td {
+      background: #f8f9fa;
+    }
+
+    .modal .empty-msg {
+      text-align: center;
+      color: #95a5a6;
+      padding: 20px 0;
+      font-size: 14px;
+    }
+
+    .modal .modal-close {
+      display: block;
+      margin: 16px auto 0;
+      padding: 7px 30px;
+      border: none;
+      border-radius: 6px;
+      background: #34495e;
+      color: #fff;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .modal .modal-close:hover {
+      background: #2c3e50;
+    }
+
+    /* Custom difficulty form */
+    .custom-form {
+      padding: 4px 0;
+    }
+
+    .custom-form .form-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      gap: 10px;
+    }
+
+    .custom-form .form-row label {
+      font-size: 14px;
+      font-weight: 600;
+      color: #2c3e50;
+      min-width: 70px;
+    }
+
+    .custom-form .form-row input {
+      flex: 1;
+      padding: 7px 10px;
+      border: 2px solid #bdc3c7;
+      border-radius: 6px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+      width: 0;
+      min-width: 60px;
+    }
+
+    .custom-form .form-row input:focus {
+      border-color: #3498db;
+    }
+
+    .custom-form .form-row input.error {
+      border-color: #e74c3c;
+      background: #fdf0ef;
+    }
+
+    .custom-form .form-row .hint {
+      font-size: 11px;
+      color: #95a5a6;
+      min-width: 50px;
+      text-align: right;
+    }
+
+    .custom-form .form-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 16px;
+    }
+
+    .custom-form .form-actions button {
+      padding: 7px 28px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .custom-form .form-actions .btn-apply {
+      background: #2ecc71;
+      color: #fff;
+    }
+
+    .custom-form .form-actions .btn-apply:hover {
+      background: #27ae60;
+    }
+
+    .custom-form .form-actions .btn-cancel {
+      background: #95a5a6;
+      color: #fff;
+    }
+
+    .custom-form .form-actions .btn-cancel:hover {
+      background: #7f8c8d;
+    }
+
+    .custom-form .form-error {
+      color: #e74c3c;
+      font-size: 12px;
+      text-align: center;
+      min-height: 18px;
+      margin-top: 4px;
+    }
+
+    /* Resume toast */
+    .resume-toast {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #2c3e50;
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      z-index: 999;
+      display: none;
+      align-items: center;
+      gap: 14px;
+      font-size: 14px;
+      animation: slideDown 0.3s ease;
+    }
+
+    @keyframes slideDown {
+      from {
+        transform: translateX(-50%) translateY(-30px);
+        opacity: 0;
+      }
+
+      to {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+      }
+    }
+
+    .resume-toast.show {
+      display: flex;
+    }
+
+    .resume-toast button {
+      padding: 5px 14px;
+      border: none;
+      border-radius: 5px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .resume-toast .btn-yes {
+      background: #2ecc71;
+      color: #fff;
+    }
+
+    .resume-toast .btn-no {
+      background: #e74c3c;
+      color: #fff;
+    }
+
+    .resume-toast .btn-yes:hover {
+      background: #27ae60;
+    }
+
+    .resume-toast .btn-no:hover {
+      background: #c0392b;
+    }
+
+    .status-msg {
+      font-size: 13px;
+      font-weight: 600;
+      text-align: center;
+      min-height: 20px;
+      margin-bottom: 6px;
+    }
+
+    .status-msg.win {
+      color: #27ae60;
+    }
+
+    .status-msg.lose {
+      color: #e74c3c;
+    }
+
+    @media (max-width: 500px) {
+      .container {
+        padding: 10px;
+        border-radius: 0;
+        max-width: 100vw;
+        max-height: 100vh;
+        border-radius: 0;
+      }
+
+      h1 {
+        font-size: 18px;
+      }
+
+      .info-bar {
+        font-size: 12px;
+        padding: 4px 10px;
+      }
+
+      .difficulty-bar button {
+        font-size: 12px;
+        padding: 4px 12px;
+      }
+
+      .bottom-bar button {
+        font-size: 12px;
+        padding: 5px 14px;
+      }
+
+      .modal {
+        padding: 16px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+    <h1>💣 扫雷</h1>
+
+    <div class="difficulty-bar">
+      <button data-diff="easy" class="active">😊 简单 9×9</button>
+      <button data-diff="medium">🤔 中等 16×16</button>
+      <button data-diff="hard">😈 困难 24×20</button>
+      <button data-diff="hell">🔥 地狱 28×30</button>
+      <button data-diff="custom">⚙️ 自定义</button>
+    </div>
+
+    <div class="status-msg" id="statusMsg">点击格子开始游戏</div>
+
+    <div class="info-bar">
+      <span class="mine-count" id="mineCount">💣 000</span>
+      <span class="timer" id="timer">⏱ 00:00</span>
+    </div>
+
+    <div class="board-wrapper" id="boardWrapper">
+      <div class="board" id="board"></div>
+    </div>
+
+    <div class="bottom-bar">
+      <button class="btn-resume" id="btnResume" style="display:none">▶ 继续游戏</button>
+      <button class="btn-new" id="btnNew">🔄 新游戏</button>
+      <button class="flag-toggle show" id="flagToggle"></button>
+      <button class="btn-records" id="btnRecords">🏆 通关记录</button>
+    </div>
+  </div>
+
+  <!-- Records Modal -->
+  <div class="modal-overlay" id="recordsModal">
+    <div class="modal">
+      <h2>🏆 通关记录</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>难度</th>
+            <th>用时</th>
+            <th>日期</th>
+          </tr>
+        </thead>
+        <tbody id="recordsBody"></tbody>
+      </table>
+      <button class="modal-close" id="modalClose">关闭</button>
+    </div>
+  </div>
+
+  <!-- Custom Settings Modal -->
+  <div class="modal-overlay" id="customModal">
+    <div class="modal">
+      <h2>⚙️ 自定义难度</h2>
+      <div class="custom-form">
+        <div class="form-row">
+          <label>宽度</label>
+          <input type="number" id="customCols" min="5" max="50" value="15">
+          <span class="hint">5 ~ 50</span>
+        </div>
+        <div class="form-row">
+          <label>高度</label>
+          <input type="number" id="customRows" min="5" max="50" value="15">
+          <span class="hint">5 ~ 50</span>
+        </div>
+        <div class="form-row">
+          <label>雷数</label>
+          <input type="number" id="customMines" min="1" max="500" value="50">
+          <span class="hint" id="minesHint">1 ~ 225</span>
+        </div>
+        <div class="form-row">
+          <label>限时(秒)</label>
+          <input type="number" id="customTimeLimit" min="0" max="3600" value="0">
+          <span class="hint">0=不限</span>
+        </div>
+        <div class="form-error" id="customFormError"></div>
+        <div class="form-actions">
+          <button class="btn-cancel" id="customCancel">取消</button>
+          <button class="btn-apply" id="customApply">✅ 开始游戏</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Resume Toast -->
+  <div class="resume-toast" id="resumeToast">
+    <span>📂 检测到未完成的游戏，是否继续？</span>
+    <button class="btn-yes" id="resumeYes">继续</button>
+    <button class="btn-no" id="resumeNo">重新开始</button>
+  </div>
+
+  <script>
+    // ============================================================
+    //  Configuration
+    // ============================================================
+    const DIFFICULTIES = {
+      easy: { label: '简单', rows: 9, cols: 9, mines: 10, timeLimit: 0 },
+      medium: { label: '中等', rows: 16, cols: 16, mines: 40, timeLimit: 600 },
+      hard: { label: '困难', rows: 24, cols: 20, mines: 99, timeLimit: 300 },
+      hell: { label: '地狱', rows: 30, cols: 28, mines: 200, timeLimit: 180 },
+      custom: { label: '自定义', rows: 15, cols: 15, mines: 50, timeLimit: 0, isCustom: true },
+    };
+
+    const STORAGE_KEYS = {
+      records: 'ms_records',
+      save: 'ms_save_state',
+      custom: 'ms_custom_config',
+    };
+
+    // ============================================================
+    //  State
+    // ============================================================
+    let state = {
+      difficulty: 'easy',
+      board: [],       // 2D array of cell objects
+      rows: 0,
+      cols: 0,
+      totalMines: 0,
+      flagsPlaced: 0,
+      revealedCount: 0,
+      status: 'idle',  // idle | playing | won | lost
+      timer: 0,        // elapsed seconds (or countdown from timeLimit)
+      timerInterval: null,
+      firstClick: true,
+      flagMode: false,  // mobile: toggle flag mode
+      gameOver: false,
+      timeLimit: 0,     // 0 = no limit
+      timerMode: 'elapsed', // 'elapsed' or 'countdown'
+    };
+
+    // ============================================================
+    //  DOM refs
+    // ============================================================
+    const boardEl = document.getElementById('board');
+    const boardWrapper = document.getElementById('boardWrapper');
+    const mineCountEl = document.getElementById('mineCount');
+    const timerEl = document.getElementById('timer');
+    const statusMsg = document.getElementById('statusMsg');
+    const flagToggle = document.getElementById('flagToggle');
+    const recordsModal = document.getElementById('recordsModal');
+    const recordsBody = document.getElementById('recordsBody');
+
+    // ============================================================
+    //  Helpers
+    // ============================================================
+    function pad2(n) { return String(n).padStart(2, '0'); }
+    function fmtTime(sec) {
+      const m = Math.floor(sec / 60);
+      const s = sec % 60;
+      return `${pad2(m)}:${pad2(s)}`;
+    }
+    function fmtDate(ts) {
+      const d = new Date(ts);
+      return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+    }
+    function getCellSize(rows, cols) {
+      // Dynamic cell size based on grid dimensions
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const maxW = Math.min(vw * 0.92 - 12, 720);
+      const maxH = Math.min(vh * 0.6 - 12, 600);
+      const sizeByW = Math.floor(maxW / cols);
+      const sizeByH = Math.floor(maxH / rows);
+      let size = Math.min(sizeByW, sizeByH);
+      size = Math.max(20, Math.min(size, 42));
+      return size;
+    }
+
+    // ============================================================
+    //  Board logic
+    // ============================================================
+    function createBoard(rows, cols, mines) {
+      const b = [];
+      for (let r = 0; r < rows; r++) {
+        b[r] = [];
+        for (let c = 0; c < cols; c++) {
+          b[r][c] = { mine: false, revealed: false, flagged: false, adjacent: 0 };
+        }
+      }
+      return b;
+    }
+
+    function placeMines(board, rows, cols, totalMines, excludeR, excludeC) {
+      let placed = 0;
+      // Exclusion zone: the clicked cell + its neighbors (first click safe)
+      const excluded = new Set();
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          const nr = excludeR + dr;
+          const nc = excludeC + dc;
+          if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+            excluded.add(nr * cols + nc);
+          }
+        }
+      }
+      while (placed < totalMines) {
+        const r = Math.floor(Math.random() * rows);
+        const c = Math.floor(Math.random() * cols);
+        const key = r * cols + c;
+        if (!board[r][c].mine && !excluded.has(key)) {
+          board[r][c].mine = true;
+          placed++;
+        }
+      }
+      // Calculate adjacent counts
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (board[r][c].mine) continue;
+          let count = 0;
+          for (let dr = -1; dr <= 1; dr++) {
+            for (let dc = -1; dc <= 1; dc++) {
+              if (dr === 0 && dc === 0) continue;
+              const nr = r + dr, nc = c + dc;
+              if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && board[nr][nc].mine) count++;
+            }
+          }
+          board[r][c].adjacent = count;
+        }
+      }
+    }
+
+    function floodFill(board, rows, cols, r, c) {
+      const stack = [[r, c]];
+      let count = 0;
+      while (stack.length > 0) {
+        const [cr, cc] = stack.pop();
+        if (cr < 0 || cr >= rows || cc < 0 || cc >= cols) continue;
+        const cell = board[cr][cc];
+        if (cell.revealed || cell.flagged || cell.mine) continue;
+        cell.revealed = true;
+        count++;
+        if (cell.adjacent === 0) {
+          for (let dr = -1; dr <= 1; dr++) {
+            for (let dc = -1; dc <= 1; dc++) {
+              if (dr === 0 && dc === 0) continue;
+              stack.push([cr + dr, cc + dc]);
+            }
+          }
+        }
+      }
+      return count;
+    }
+
+    function checkWin(board, rows, cols, totalMines) {
+      let revealed = 0;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (board[r][c].revealed) revealed++;
+        }
+      }
+      return revealed === rows * cols - totalMines;
+    }
+
+    function revealAllMines(board, rows, cols, hitR, hitC) {
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (board[r][c].mine) {
+            board[r][c].revealed = true;
+            if (r === hitR && c === hitC) {
+              board[r][c]._hit = true;
+            }
+          }
+        }
+      }
+    }
+
+    // ============================================================
+    //  Game lifecycle
+    // ============================================================
+    function initGame(diffKey, keepSave = false) {
+      // Stop any running timer
+      stopTimer();
+
+      // Apply custom config if needed
+      if (diffKey === 'custom') {
+        applyCustomConfigToDifficulty();
+      }
+
+      const diff = DIFFICULTIES[diffKey];
+      state.difficulty = diffKey;
+      state.rows = diff.rows;
+      state.cols = diff.cols;
+      state.totalMines = diff.mines;
+      state.flagsPlaced = 0;
+      state.revealedCount = 0;
+      state.status = 'idle';
+      state.firstClick = true;
+      state.gameOver = false;
+      state.timer = 0;
+      state.timeLimit = diff.timeLimit;
+      state.timerMode = diff.timeLimit > 0 ? 'countdown' : 'elapsed';
+
+      state.board = createBoard(diff.rows, diff.cols, diff.mines);
+
+      if (!keepSave) clearSave();
+      renderDifficultyBtns();
+      updateInfoBar();
+      statusMsg.textContent = diff.timeLimit > 0
+        ? `点击格子开始游戏（限时 ${fmtTime(diff.timeLimit)}）`
+        : '点击格子开始游戏';
+      statusMsg.className = 'status-msg';
+      renderBoard();
+      autoSave();
+    }
+
+    function startGame(firstR, firstC) {
+      const diff = DIFFICULTIES[state.difficulty];
+      state.firstClick = false;
+      state.status = 'playing';
+      // Place mines avoiding first click
+      placeMines(state.board, state.rows, state.cols, state.totalMines, firstR, firstC);
+      startTimer();
+      // Reveal first cell
+      revealCell(firstR, firstC);
+      statusMsg.textContent = '游戏进行中...';
+      statusMsg.className = 'status-msg';
+      autoSave();
+    }
+
+    function revealCell(r, c) {
+      if (state.gameOver) return false;
+      if (r < 0 || r >= state.rows || c < 0 || c >= state.cols) return false;
+      const cell = state.board[r][c];
+      if (cell.revealed || cell.flagged) return false;
+
+      // First click → start game (place mines, then reveal)
+      if (state.firstClick) {
+        startGame(r, c);
+        return true;
+      }
+
+      if (cell.mine) {
+        // Game over
+        cell._hit = true;
+        revealAllMines(state.board, state.rows, state.cols, r, c);
+        state.status = 'lost';
+        state.gameOver = true;
+        stopTimer();
+        statusMsg.textContent = '💥 踩雷了！游戏结束';
+        statusMsg.className = 'status-msg lose';
+        renderBoard();
+        clearSave();
+        return false;
+      }
+
+      // Flood fill
+      const revealed = floodFill(state.board, state.rows, state.cols, r, c);
+      state.revealedCount += revealed;
+      renderBoard();
+      updateInfoBar();
+
+      // Check win
+      if (checkWin(state.board, state.rows, state.cols, state.totalMines)) {
+        state.status = 'won';
+        state.gameOver = true;
+        stopTimer();
+        statusMsg.textContent = '🎉 恭喜通关！';
+        statusMsg.className = 'status-msg win';
+        // Auto flag remaining mines
+        for (let rr = 0; rr < state.rows; rr++) {
+          for (let cc = 0; cc < state.cols; cc++) {
+            if (state.board[rr][cc].mine && !state.board[rr][cc].flagged) {
+              state.board[rr][cc].flagged = true;
+              state.flagsPlaced++;
+            }
+          }
+        }
+        updateInfoBar();
+        saveRecord();
+        clearSave();
+        return true;
+      }
+
+      autoSave();
+      return true;
+    }
+
+    function toggleFlag(r, c) {
+      if (state.gameOver) return;
+      if (state.firstClick) return; // Must click first
+      if (r < 0 || r >= state.rows || c < 0 || c >= state.cols) return;
+      const cell = state.board[r][c];
+      if (cell.revealed) return;
+      cell.flagged = !cell.flagged;
+      state.flagsPlaced += cell.flagged ? 1 : -1;
+      renderBoard();
+      updateInfoBar();
+      autoSave();
+    }
+
+    function chordReveal(r, c) {
+      if (state.gameOver) return;
+      const cell = state.board[r][c];
+      if (!cell.revealed || cell.adjacent === 0) return;
+      // Count flags around
+      let flagCount = 0;
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          if (dr === 0 && dc === 0) continue;
+          const nr = r + dr, nc = c + dc;
+          if (nr >= 0 && nr < state.rows && nc >= 0 && nc < state.cols && state.board[nr][nc].flagged) flagCount++;
+        }
+      }
+      if (flagCount === cell.adjacent) {
+        for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+            if (dr === 0 && dc === 0) continue;
+            const nr = r + dr, nc = c + dc;
+            if (nr >= 0 && nr < state.rows && nc >= 0 && nc < state.cols) {
+              revealCell(nr, nc);
+            }
+          }
+        }
+      }
+    }
+
+    // ============================================================
+    //  Timer
+    // ============================================================
+    function startTimer() {
+      stopTimer();
+      state.timer = 0;
+      state.timerInterval = setInterval(() => {
+        state.timer++;
+        if (state.timerMode === 'countdown') {
+          const remaining = Math.max(0, state.timeLimit - state.timer);
+          timerEl.textContent = `⏱ ${fmtTime(remaining)}`;
+          if (remaining <= 60) timerEl.classList.add('danger');
+          if (remaining <= 0) {
+            // Time's up → game over
+            stopTimer();
+            state.status = 'lost';
+            state.gameOver = true;
+            statusMsg.textContent = '⏰ 时间到！游戏结束';
+            statusMsg.className = 'status-msg lose';
+            revealAllMines(state.board, state.rows, state.cols, -1, -1);
+            renderBoard();
+            clearSave();
+          }
+        } else {
+          timerEl.textContent = `⏱ ${fmtTime(state.timer)}`;
+        }
+      }, 1000);
+    }
+
+    function stopTimer() {
+      if (state.timerInterval) {
+        clearInterval(state.timerInterval);
+        state.timerInterval = null;
+      }
+      timerEl.classList.remove('danger');
+    }
+
+    // ============================================================
+    //  Render
+    // ============================================================
+    function renderBoard() {
+      const cellSize = getCellSize(state.rows, state.cols);
+      boardEl.style.setProperty('--cell-size', cellSize + 'px');
+      boardEl.style.gridTemplateColumns = `repeat(${state.cols}, var(--cell-size))`;
+      boardEl.innerHTML = '';
+
+      for (let r = 0; r < state.rows; r++) {
+        for (let c = 0; c < state.cols; c++) {
+          const cell = state.board[r][c];
+          const div = document.createElement('div');
+          div.className = 'cell';
+          div.dataset.r = r;
+          div.dataset.c = c;
+
+          if (cell.revealed) {
+            if (cell.mine) {
+              div.classList.add(cell._hit ? 'mine-hit' : 'mine-revealed');
+            } else {
+              div.classList.add('revealed');
+              if (cell.adjacent > 0) {
+                div.classList.add('n' + cell.adjacent);
+                div.textContent = cell.adjacent;
+              } else {
+                div.classList.add('n0');
+              }
+            }
+          } else {
+            div.classList.add('hidden');
+            if (cell.flagged) {
+              div.classList.add('flagged');
+            }
+          }
+
+          // Click (left-click or tap)
+          div.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (state.flagMode) {
+              toggleFlag(r, c);
+            } else {
+              revealCell(r, c);
+            }
+          });
+
+          // Right-click (desktop flag)
+          div.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            toggleFlag(r, c);
+          });
+
+          // Double-click / chord
+          div.addEventListener('dblclick', (e) => {
+            e.preventDefault();
+            chordReveal(r, c);
+          });
+
+          boardEl.appendChild(div);
+        }
+      }
+    }
+
+    function updateInfoBar() {
+      const remaining = state.totalMines - state.flagsPlaced;
+      mineCountEl.textContent = `💣 ${pad2(Math.max(0, remaining))}`;
+      if (state.timerMode === 'countdown') {
+        const remainingTime = Math.max(0, state.timeLimit - state.timer);
+        timerEl.textContent = `⏱ ${fmtTime(remainingTime)}`;
+        if (remainingTime <= 60) timerEl.classList.add('danger');
+      } else {
+        timerEl.textContent = `⏱ ${fmtTime(state.timer)}`;
+      }
+    }
+
+    function renderDifficultyBtns() {
+      document.querySelectorAll('.difficulty-bar button').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.diff === state.difficulty);
+      });
+    }
+
+    // ============================================================
+    //  Records
+    // ============================================================
+    function getRecords() {
+      try {
+        const data = localStorage.getItem(STORAGE_KEYS.records);
+        return data ? JSON.parse(data) : [];
+      } catch { return []; }
+    }
+
+    function saveRecord() {
+      const records = getRecords();
+      const diff = DIFFICULTIES[state.difficulty];
+      const elapsed = state.timer;
+      records.push({
+        difficulty: state.difficulty,
+        difficultyLabel: diff.label,
+        time: elapsed,
+        timeStr: fmtTime(elapsed),
+        date: Date.now(),
+        dateStr: fmtDate(Date.now()),
+        rows: state.rows,
+        cols: state.cols,
+        mines: state.totalMines,
+      });
+      // Sort by time ascending, keep top 10
+      records.sort((a, b) => a.time - b.time);
+      const trimmed = records.slice(0, 10);
+      try {
+        localStorage.setItem(STORAGE_KEYS.records, JSON.stringify(trimmed));
+      } catch { }
+    }
+
+    function showRecords() {
+      const records = getRecords();
+      recordsBody.innerHTML = '';
+      if (records.length === 0) {
+        recordsBody.innerHTML = '<tr><td colspan="4" class="empty-msg">暂无通关记录，快去玩一局吧！</td></tr>';
+      } else {
+        records.forEach((rec, i) => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${i + 1}</td>
+        <td>${rec.difficultyLabel} (${rec.cols}×${rec.rows})</td>
+        <td>${rec.timeStr}</td>
+        <td>${rec.dateStr}</td>`;
+          recordsBody.appendChild(tr);
+        });
+      }
+      recordsModal.classList.add('show');
+    }
+
+    // ============================================================
+    //  Custom Modal
+    // ============================================================
+    function openCustomModal() {
+      const cfg = getCustomConfig();
+      document.getElementById('customCols').value = cfg ? cfg.cols : 15;
+      document.getElementById('customRows').value = cfg ? cfg.rows : 15;
+      document.getElementById('customMines').value = cfg ? cfg.mines : 50;
+      document.getElementById('customTimeLimit').value = cfg ? cfg.timeLimit : 0;
+      updateMinesHint();
+      document.getElementById('customFormError').textContent = '';
+      document.querySelectorAll('.custom-form input').forEach(el => el.classList.remove('error'));
+      document.getElementById('customModal').classList.add('show');
+    }
+
+    function updateMinesHint() {
+      const rows = parseInt(document.getElementById('customRows').value) || 15;
+      const cols = parseInt(document.getElementById('customCols').value) || 15;
+      const maxMines = rows * cols - 1;
+      const hint = document.getElementById('minesHint');
+      hint.textContent = `1 ~ ${maxMines}`;
+      const minesInput = document.getElementById('customMines');
+      minesInput.max = maxMines;
+      if (parseInt(minesInput.value) > maxMines) minesInput.value = maxMines;
+    }
+
+    function validateCustomForm() {
+      const rows = parseInt(document.getElementById('customRows').value);
+      const cols = parseInt(document.getElementById('customCols').value);
+      const mines = parseInt(document.getElementById('customMines').value);
+      const timeLimit = parseInt(document.getElementById('customTimeLimit').value);
+      const errEl = document.getElementById('customFormError');
+
+      // Reset errors
+      document.querySelectorAll('.custom-form input').forEach(el => el.classList.remove('error'));
+
+      if (isNaN(rows) || rows < 5 || rows > 50) {
+        errEl.textContent = '高度请输入 5 ~ 50 之间的数字';
+        document.getElementById('customRows').classList.add('error');
+        return null;
+      }
+      if (isNaN(cols) || cols < 5 || cols > 50) {
+        errEl.textContent = '宽度请输入 5 ~ 50 之间的数字';
+        document.getElementById('customCols').classList.add('error');
+        return null;
+      }
+      const maxMines = rows * cols - 1;
+      if (isNaN(mines) || mines < 1 || mines > maxMines) {
+        errEl.textContent = `雷数请输入 1 ~ ${maxMines} 之间的数字`;
+        document.getElementById('customMines').classList.add('error');
+        return null;
+      }
+      if (isNaN(timeLimit) || timeLimit < 0 || timeLimit > 3600) {
+        errEl.textContent = '限时请输入 0 ~ 3600 之间的数字（0=不限时）';
+        document.getElementById('customTimeLimit').classList.add('error');
+        return null;
+      }
+      errEl.textContent = '';
+      return { rows, cols, mines, timeLimit };
+    }
+
+    function applyCustomSettings() {
+      const result = validateCustomForm();
+      if (!result) return;
+      saveCustomConfig(result.rows, result.cols, result.mines, result.timeLimit);
+      document.getElementById('customModal').classList.remove('show');
+      if (state.status === 'playing') {
+        clearSave();
+      }
+      initGame('custom');
+    }
+
+    // ============================================================
+    //  Save / Load (localStorage)
+    // ============================================================
+    function autoSave() {
+      if (state.status === 'won' || state.status === 'lost') return;
+      if (state.firstClick) return; // nothing to save yet
+      const saveData = {
+        difficulty: state.difficulty,
+        board: state.board.map(row => row.map(cell => ({
+          mine: cell.mine,
+          revealed: cell.revealed,
+          flagged: cell.flagged,
+          adjacent: cell.adjacent,
+          _hit: cell._hit || false,
+        }))),
+        timer: state.timer,
+        flagsPlaced: state.flagsPlaced,
+        status: state.status,
+        gameOver: state.gameOver,
+        firstClick: state.firstClick,
+        timeLimit: state.timeLimit,
+        timerMode: state.timerMode,
+        totalMines: state.totalMines,
+        rows: state.rows,
+        cols: state.cols,
+        timestamp: Date.now(),
+      };
+      try {
+        localStorage.setItem(STORAGE_KEYS.save, JSON.stringify(saveData));
+      } catch { }
+    }
+
+    function clearSave() {
+      try { localStorage.removeItem(STORAGE_KEYS.save); } catch { }
+    }
+
+    function hasSavedGame() {
+      try { return localStorage.getItem(STORAGE_KEYS.save) !== null; } catch { return false; }
+    }
+
+    // ---- Custom config ----
+    function getCustomConfig() {
+      try {
+        const data = localStorage.getItem(STORAGE_KEYS.custom);
+        if (data) {
+          const cfg = JSON.parse(data);
+          // Validate
+          if (cfg.rows && cfg.cols && cfg.mines >= 1 && cfg.cols >= 5) {
+            return cfg;
+          }
+        }
+      } catch { }
+      return null;
+    }
+
+    function saveCustomConfig(rows, cols, mines, timeLimit) {
+      try {
+        localStorage.setItem(STORAGE_KEYS.custom, JSON.stringify({ rows, cols, mines, timeLimit }));
+      } catch { }
+    }
+
+    function applyCustomConfigToDifficulty() {
+      const cfg = getCustomConfig();
+      if (cfg) {
+        DIFFICULTIES.custom.rows = cfg.rows;
+        DIFFICULTIES.custom.cols = cfg.cols;
+        DIFFICULTIES.custom.mines = cfg.mines;
+        DIFFICULTIES.custom.timeLimit = cfg.timeLimit;
+      }
+    }
+
+    function loadSavedGame() {
+      try {
+        const data = localStorage.getItem(STORAGE_KEYS.save);
+        if (!data) return false;
+        const saved = JSON.parse(data);
+
+        // Restore state
+        state.difficulty = saved.difficulty;
+        state.rows = saved.rows || saved.board.length;
+        state.cols = saved.cols || saved.board[0].length;
+        state.totalMines = saved.totalMines || DIFFICULTIES[saved.difficulty].mines;
+        state.board = saved.board;
+        state.timer = saved.timer;
+        state.flagsPlaced = saved.flagsPlaced;
+        state.status = saved.status;
+        state.gameOver = saved.gameOver;
+        state.firstClick = saved.firstClick;
+        state.timeLimit = saved.timeLimit;
+        state.timerMode = saved.timerMode;
+
+        renderDifficultyBtns();
+        updateInfoBar();
+        if (state.status === 'playing') {
+          startTimer();
+          statusMsg.textContent = '游戏进行中...';
+          statusMsg.className = 'status-msg';
+        } else if (state.status === 'won') {
+          statusMsg.textContent = '🎉 恭喜通关！';
+          statusMsg.className = 'status-msg win';
+        } else if (state.status === 'lost') {
+          statusMsg.textContent = '💥 游戏结束';
+          statusMsg.className = 'status-msg lose';
+        }
+        renderBoard();
+        return true;
+      } catch {
+        clearSave();
+        return false;
+      }
+    }
+
+    // ============================================================
+    //  Event Bindings
+    // ============================================================
+
+    // Difficulty buttons
+    document.querySelectorAll('.difficulty-bar button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const diff = btn.dataset.diff;
+        if (diff === state.difficulty && state.firstClick) return;
+        // Custom: show settings modal
+        if (diff === 'custom') {
+          if (state.status === 'playing') {
+            if (!confirm('当前游戏正在进行中，确定要修改设置吗？')) return;
+          }
+          openCustomModal();
+          return;
+        }
+        // Check if game in progress
+        if (state.status === 'playing') {
+          if (!confirm('当前游戏正在进行中，确定要开始新游戏吗？')) return;
+        }
+        clearSave();
+        initGame(diff);
+      });
+    });
+
+    // New game button
+    document.getElementById('btnNew').addEventListener('click', () => {
+      if (state.status === 'playing') {
+        if (!confirm('当前游戏正在进行中，确定要重新开始吗？')) return;
+      }
+      clearSave();
+      initGame(state.difficulty);
+    });
+
+    // Flag toggle (mobile)
+    flagToggle.addEventListener('click', () => {
+      state.flagMode = !state.flagMode;
+      flagToggle.classList.toggle('active', state.flagMode);
+    });
+
+    // Records button
+    document.getElementById('btnRecords').addEventListener('click', showRecords);
+
+    // Modal close
+    document.getElementById('modalClose').addEventListener('click', () => {
+      recordsModal.classList.remove('show');
+    });
+    recordsModal.addEventListener('click', (e) => {
+      if (e.target === recordsModal) recordsModal.classList.remove('show');
+    });
+
+    // ---- Custom modal ----
+    document.getElementById('customApply').addEventListener('click', applyCustomSettings);
+    document.getElementById('customCancel').addEventListener('click', () => {
+      document.getElementById('customModal').classList.remove('show');
+    });
+    document.getElementById('customModal').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('customModal')) {
+        document.getElementById('customModal').classList.remove('show');
+      }
+    });
+    // Update mines hint when rows/cols change
+    document.getElementById('customRows').addEventListener('input', updateMinesHint);
+    document.getElementById('customCols').addEventListener('input', updateMinesHint);
+    // Enter key to submit
+    document.querySelectorAll('#customModal input').forEach(el => {
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') applyCustomSettings();
+      });
+    });
+
+    // Resume buttons
+    const resumeToast = document.getElementById('resumeToast');
+    document.getElementById('resumeYes').addEventListener('click', () => {
+      resumeToast.classList.remove('show');
+      if (loadSavedGame()) {
+        document.getElementById('btnResume').style.display = 'none';
+      } else {
+        initGame(state.difficulty);
+      }
+    });
+    document.getElementById('resumeNo').addEventListener('click', () => {
+      resumeToast.classList.remove('show');
+      clearSave();
+      initGame(state.difficulty);
+    });
+
+    document.getElementById('btnResume').addEventListener('click', () => {
+      loadSavedGame();
+      document.getElementById('btnResume').style.display = 'none';
+    });
+
+    // Keyboard shortcut: F for flag toggle
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'f' || e.key === 'F') {
+        flagToggle.click();
+      }
+    });
+
+    // ============================================================
+    //  Init
+    // ============================================================
+    window.addEventListener('DOMContentLoaded', () => {
+      initGame('easy');
+
+      // Resume prompt
+      if (hasSavedGame()) {
+        resumeToast.classList.add('show');
+      }
+
+      // Auto-recalculate cell size on resize
+      let resizeTimer;
+      window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+          if (state.board.length > 0) renderBoard();
+        }, 200);
+      });
+    });
+  </script>
+</body>
+
+</html>
