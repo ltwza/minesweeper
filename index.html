@@ -610,22 +610,6 @@
       background: #c0392b;
     }
 
-    /* Fireworks canvas */
-    #fireworksCanvas {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: 9999;
-      display: none;
-    }
-
-    #fireworksCanvas.active {
-      display: block;
-    }
-
     /* Win / Lose animations */
     @keyframes boardWinPulse {
       0% {
@@ -843,960 +827,963 @@
       </div>
     </div>
   </div>
+</body>
+<script>
+  // ============================================================
+  //  Configuration
+  // ============================================================
+  const DIFFICULTIES = {
+    easy: { label: '简单', rows: 9, cols: 9, mines: 10, timeLimit: 0 },
+    medium: { label: '中等', rows: 16, cols: 16, mines: 40, timeLimit: 600 },
+    hard: { label: '困难', rows: 24, cols: 20, mines: 99, timeLimit: 300 },
+    hell: { label: '地狱', rows: 30, cols: 28, mines: 200, timeLimit: 180 },
+    custom: { label: '自定义', rows: 15, cols: 15, mines: 50, timeLimit: 0, isCustom: true },
+  };
 
-  <!-- Fireworks Canvas -->
-  <canvas id="fireworksCanvas"></canvas>
+  const STORAGE_KEYS = {
+    records: 'ms_records',
+    save: 'ms_save_state',
+    custom: 'ms_custom_config',
+  };
 
-  <script>
-    // ============================================================
-    //  Configuration
-    // ============================================================
-    const DIFFICULTIES = {
-      easy: { label: '简单', rows: 9, cols: 9, mines: 10, timeLimit: 0 },
-      medium: { label: '中等', rows: 16, cols: 16, mines: 40, timeLimit: 600 },
-      hard: { label: '困难', rows: 24, cols: 20, mines: 99, timeLimit: 300 },
-      hell: { label: '地狱', rows: 30, cols: 28, mines: 200, timeLimit: 180 },
-      custom: { label: '自定义', rows: 15, cols: 15, mines: 50, timeLimit: 0, isCustom: true },
-    };
+  // ============================================================
+  //  State
+  // ============================================================
+  let state = {
+    difficulty: 'easy',
+    board: [],       // 2D array of cell objects
+    rows: 0,
+    cols: 0,
+    totalMines: 0,
+    flagsPlaced: 0,
+    revealedCount: 0,
+    status: 'idle',  // idle | playing | won | lost
+    timer: 0,        // elapsed seconds (or countdown from timeLimit)
+    timerInterval: null,
+    firstClick: true,
+    flagMode: false,  // mobile: toggle flag mode
+    gameOver: false,
+    timeLimit: 0,     // 0 = no limit
+    timerMode: 'elapsed', // 'elapsed' or 'countdown'
+  };
 
-    const STORAGE_KEYS = {
-      records: 'ms_records',
-      save: 'ms_save_state',
-      custom: 'ms_custom_config',
-    };
+  // ============================================================
+  //  DOM refs
+  // ============================================================
+  const boardEl = document.getElementById('board');
+  const boardWrapper = document.getElementById('boardWrapper');
+  const mineCountEl = document.getElementById('mineCount');
+  const timerEl = document.getElementById('timer');
+  const statusMsg = document.getElementById('statusMsg');
+  const flagToggle = document.getElementById('flagToggle');
+  const recordsModal = document.getElementById('recordsModal');
+  const recordsBody = document.getElementById('recordsBody');
 
-    // ============================================================
-    //  State
-    // ============================================================
-    let state = {
-      difficulty: 'easy',
-      board: [],       // 2D array of cell objects
-      rows: 0,
-      cols: 0,
-      totalMines: 0,
-      flagsPlaced: 0,
-      revealedCount: 0,
-      status: 'idle',  // idle | playing | won | lost
-      timer: 0,        // elapsed seconds (or countdown from timeLimit)
-      timerInterval: null,
-      firstClick: true,
-      flagMode: false,  // mobile: toggle flag mode
-      gameOver: false,
-      timeLimit: 0,     // 0 = no limit
-      timerMode: 'elapsed', // 'elapsed' or 'countdown'
-    };
+  // ============================================================
+  //  Helpers
+  // ============================================================
+  function pad2(n) { return String(n).padStart(2, '0'); }
+  function fmtTime(sec) {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${pad2(m)}:${pad2(s)}`;
+  }
+  function fmtDate(ts) {
+    const d = new Date(ts);
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  }
+  function getCellSize(rows, cols) {
+    // Dynamic cell size based on grid dimensions
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const maxW = Math.min(vw * 0.92 - 12, 720);
+    const maxH = Math.min(vh * 0.6 - 12, 600);
+    const sizeByW = Math.floor(maxW / cols);
+    const sizeByH = Math.floor(maxH / rows);
+    let size = Math.min(sizeByW, sizeByH);
+    size = Math.max(20, Math.min(size, 42));
+    return size;
+  }
 
-    // ============================================================
-    //  DOM refs
-    // ============================================================
-    const boardEl = document.getElementById('board');
-    const boardWrapper = document.getElementById('boardWrapper');
-    const mineCountEl = document.getElementById('mineCount');
-    const timerEl = document.getElementById('timer');
-    const statusMsg = document.getElementById('statusMsg');
-    const flagToggle = document.getElementById('flagToggle');
-    const recordsModal = document.getElementById('recordsModal');
-    const recordsBody = document.getElementById('recordsBody');
-
-    // ============================================================
-    //  Helpers
-    // ============================================================
-    function pad2(n) { return String(n).padStart(2, '0'); }
-    function fmtTime(sec) {
-      const m = Math.floor(sec / 60);
-      const s = sec % 60;
-      return `${pad2(m)}:${pad2(s)}`;
-    }
-    function fmtDate(ts) {
-      const d = new Date(ts);
-      return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-    }
-    function getCellSize(rows, cols) {
-      // Dynamic cell size based on grid dimensions
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-      const maxW = Math.min(vw * 0.92 - 12, 720);
-      const maxH = Math.min(vh * 0.6 - 12, 600);
-      const sizeByW = Math.floor(maxW / cols);
-      const sizeByH = Math.floor(maxH / rows);
-      let size = Math.min(sizeByW, sizeByH);
-      size = Math.max(20, Math.min(size, 42));
-      return size;
-    }
-
-    // ============================================================
-    //  Board logic
-    // ============================================================
-    function createBoard(rows, cols, mines) {
-      const b = [];
-      for (let r = 0; r < rows; r++) {
-        b[r] = [];
-        for (let c = 0; c < cols; c++) {
-          b[r][c] = { mine: false, revealed: false, flagged: false, adjacent: 0 };
-        }
+  // ============================================================
+  //  Board logic
+  // ============================================================
+  function createBoard(rows, cols, mines) {
+    const b = [];
+    for (let r = 0; r < rows; r++) {
+      b[r] = [];
+      for (let c = 0; c < cols; c++) {
+        b[r][c] = { mine: false, revealed: false, flagged: false, adjacent: 0 };
       }
-      return b;
     }
+    return b;
+  }
 
-    function placeMines(board, rows, cols, totalMines, excludeR, excludeC) {
-      let placed = 0;
-      // Exclusion zone: the clicked cell + its neighbors (first click safe)
-      const excluded = new Set();
-      for (let dr = -1; dr <= 1; dr++) {
-        for (let dc = -1; dc <= 1; dc++) {
-          const nr = excludeR + dr;
-          const nc = excludeC + dc;
-          if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
-            excluded.add(nr * cols + nc);
-          }
-        }
-      }
-      while (placed < totalMines) {
-        const r = Math.floor(Math.random() * rows);
-        const c = Math.floor(Math.random() * cols);
-        const key = r * cols + c;
-        if (!board[r][c].mine && !excluded.has(key)) {
-          board[r][c].mine = true;
-          placed++;
-        }
-      }
-      // Calculate adjacent counts
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          if (board[r][c].mine) continue;
-          let count = 0;
-          for (let dr = -1; dr <= 1; dr++) {
-            for (let dc = -1; dc <= 1; dc++) {
-              if (dr === 0 && dc === 0) continue;
-              const nr = r + dr, nc = c + dc;
-              if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && board[nr][nc].mine) count++;
-            }
-          }
-          board[r][c].adjacent = count;
+  function placeMines(board, rows, cols, totalMines, excludeR, excludeC) {
+    let placed = 0;
+    // Exclusion zone: the clicked cell + its neighbors (first click safe)
+    const excluded = new Set();
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        const nr = excludeR + dr;
+        const nc = excludeC + dc;
+        if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+          excluded.add(nr * cols + nc);
         }
       }
     }
-
-    function floodFill(board, rows, cols, r, c) {
-      const stack = [[r, c]];
-      let count = 0;
-      while (stack.length > 0) {
-        const [cr, cc] = stack.pop();
-        if (cr < 0 || cr >= rows || cc < 0 || cc >= cols) continue;
-        const cell = board[cr][cc];
-        if (cell.revealed || cell.flagged || cell.mine) continue;
-        cell.revealed = true;
-        count++;
-        if (cell.adjacent === 0) {
-          for (let dr = -1; dr <= 1; dr++) {
-            for (let dc = -1; dc <= 1; dc++) {
-              if (dr === 0 && dc === 0) continue;
-              stack.push([cr + dr, cc + dc]);
-            }
-          }
-        }
-      }
-      return count;
-    }
-
-    function checkWin(board, rows, cols, totalMines) {
-      let revealed = 0;
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          if (board[r][c].revealed) revealed++;
-        }
-      }
-      return revealed === rows * cols - totalMines;
-    }
-
-    function revealAllMines(board, rows, cols, hitR, hitC) {
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          if (board[r][c].mine) {
-            board[r][c].revealed = true;
-            if (r === hitR && c === hitC) {
-              board[r][c]._hit = true;
-            }
-          }
-        }
+    while (placed < totalMines) {
+      const r = Math.floor(Math.random() * rows);
+      const c = Math.floor(Math.random() * cols);
+      const key = r * cols + c;
+      if (!board[r][c].mine && !excluded.has(key)) {
+        board[r][c].mine = true;
+        placed++;
       }
     }
-
-    // ============================================================
-    //  Game lifecycle
-    // ============================================================
-    function initGame(diffKey, keepSave = false) {
-      // Stop any running timer
-      stopTimer();
-
-      // Apply custom config if needed
-      if (diffKey === 'custom') {
-        applyCustomConfigToDifficulty();
-      }
-
-      const diff = DIFFICULTIES[diffKey];
-      state.difficulty = diffKey;
-      state.rows = diff.rows;
-      state.cols = diff.cols;
-      state.totalMines = diff.mines;
-      state.flagsPlaced = 0;
-      state.revealedCount = 0;
-      state.status = 'idle';
-      state.firstClick = true;
-      state.gameOver = false;
-      state.timer = 0;
-      state.timeLimit = diff.timeLimit;
-      state.timerMode = diff.timeLimit > 0 ? 'countdown' : 'elapsed';
-
-      state.board = createBoard(diff.rows, diff.cols, diff.mines);
-
-      if (!keepSave) clearSave();
-      renderDifficultyBtns();
-      updateInfoBar();
-      statusMsg.textContent = diff.timeLimit > 0
-        ? `点击格子开始游戏（限时 ${fmtTime(diff.timeLimit)}）`
-        : '点击格子开始游戏';
-      statusMsg.className = 'status-msg';
-      renderBoard();
-      autoSave();
-    }
-
-    function startGame(firstR, firstC) {
-      const diff = DIFFICULTIES[state.difficulty];
-      state.firstClick = false;
-      state.status = 'playing';
-      // Place mines avoiding first click
-      placeMines(state.board, state.rows, state.cols, state.totalMines, firstR, firstC);
-      startTimer();
-      // Reveal first cell
-      revealCell(firstR, firstC);
-      // Don't overwrite status if the first click already won (e.g. tiny board)
-      if (state.gameOver) return;
-      statusMsg.textContent = '游戏进行中...';
-      statusMsg.className = 'status-msg';
-      autoSave();
-    }
-
-    function revealCell(r, c) {
-      if (state.gameOver) return false;
-      if (r < 0 || r >= state.rows || c < 0 || c >= state.cols) return false;
-      const cell = state.board[r][c];
-      if (cell.revealed || cell.flagged) return false;
-
-      // First click → start game (place mines, then reveal)
-      if (state.firstClick) {
-        startGame(r, c);
-        return true;
-      }
-
-      if (cell.mine) {
-        // Game over
-        cell._hit = true;
-        revealAllMines(state.board, state.rows, state.cols, r, c);
-        state.status = 'lost';
-        state.gameOver = true;
-        stopTimer();
-        statusMsg.textContent = '💥 踩雷了！游戏结束';
-        statusMsg.className = 'status-msg lose';
-        renderBoard();
-        // Trigger shake animation
-        boardWrapper.style.animation = 'none';
-        void boardWrapper.offsetWidth;
-        boardWrapper.style.animation = 'shake 0.4s ease';
-        if (navigator.vibrate) navigator.vibrate(200);
-        clearSave();
-        return false;
-      }
-
-      // Flood fill
-      const revealed = floodFill(state.board, state.rows, state.cols, r, c);
-      state.revealedCount += revealed;
-      renderBoard();
-      updateInfoBar();
-
-      // Check win
-      if (checkWin(state.board, state.rows, state.cols, state.totalMines)) {
-        state.status = 'won';
-        state.gameOver = true;
-        stopTimer();
-        statusMsg.textContent = '🎉 恭喜通关！';
-        statusMsg.className = 'status-msg win';
-        boardWrapper.style.animation = 'none';
-        void boardWrapper.offsetWidth;
-        boardWrapper.style.animation = 'boardWinPulse 0.8s ease 2';
-        startFireworks();
-        // Auto flag remaining mines
-        for (let rr = 0; rr < state.rows; rr++) {
-          for (let cc = 0; cc < state.cols; cc++) {
-            if (state.board[rr][cc].mine && !state.board[rr][cc].flagged) {
-              state.board[rr][cc].flagged = true;
-              state.flagsPlaced++;
-            }
-          }
-        }
-        updateInfoBar();
-        saveRecord();
-        clearSave();
-        return true;
-      }
-
-      autoSave();
-      return true;
-    }
-
-    function toggleFlag(r, c) {
-      if (state.gameOver) return;
-      if (state.firstClick) return; // Must click first
-      if (r < 0 || r >= state.rows || c < 0 || c >= state.cols) return;
-      const cell = state.board[r][c];
-      if (cell.revealed) return;
-      cell.flagged = !cell.flagged;
-      state.flagsPlaced += cell.flagged ? 1 : -1;
-      renderBoard();
-      updateInfoBar();
-      autoSave();
-    }
-
-    function chordReveal(r, c) {
-      if (state.gameOver) return;
-      const cell = state.board[r][c];
-      if (!cell.revealed || cell.adjacent === 0) return;
-      // Count flags around
-      let flagCount = 0;
-      for (let dr = -1; dr <= 1; dr++) {
-        for (let dc = -1; dc <= 1; dc++) {
-          if (dr === 0 && dc === 0) continue;
-          const nr = r + dr, nc = c + dc;
-          if (nr >= 0 && nr < state.rows && nc >= 0 && nc < state.cols && state.board[nr][nc].flagged) flagCount++;
-        }
-      }
-      if (flagCount === cell.adjacent) {
+    // Calculate adjacent counts
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (board[r][c].mine) continue;
+        let count = 0;
         for (let dr = -1; dr <= 1; dr++) {
           for (let dc = -1; dc <= 1; dc++) {
             if (dr === 0 && dc === 0) continue;
             const nr = r + dr, nc = c + dc;
-            if (nr >= 0 && nr < state.rows && nc >= 0 && nc < state.cols) {
-              revealCell(nr, nc);
-            }
+            if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && board[nr][nc].mine) count++;
+          }
+        }
+        board[r][c].adjacent = count;
+      }
+    }
+  }
+
+  function floodFill(board, rows, cols, r, c) {
+    const stack = [[r, c]];
+    let count = 0;
+    while (stack.length > 0) {
+      const [cr, cc] = stack.pop();
+      if (cr < 0 || cr >= rows || cc < 0 || cc >= cols) continue;
+      const cell = board[cr][cc];
+      if (cell.revealed || cell.flagged || cell.mine) continue;
+      cell.revealed = true;
+      count++;
+      if (cell.adjacent === 0) {
+        for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+            if (dr === 0 && dc === 0) continue;
+            stack.push([cr + dr, cc + dc]);
           }
         }
       }
     }
+    return count;
+  }
 
-    // ============================================================
-    //  Timer
-    // ============================================================
-    function startTimer() {
+  function checkWin(board, rows, cols, totalMines) {
+    let revealed = 0;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (board[r][c].revealed) revealed++;
+      }
+    }
+    return revealed === rows * cols - totalMines;
+  }
+
+  function revealAllMines(board, rows, cols, hitR, hitC) {
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (board[r][c].mine) {
+          board[r][c].revealed = true;
+          if (r === hitR && c === hitC) {
+            board[r][c]._hit = true;
+          }
+        }
+      }
+    }
+  }
+
+  // ============================================================
+  //  Game lifecycle
+  // ============================================================
+  function initGame(diffKey, keepSave = false) {
+    // Stop any running timer
+    stopTimer();
+
+    // Apply custom config if needed
+    if (diffKey === 'custom') {
+      applyCustomConfigToDifficulty();
+    }
+
+    const diff = DIFFICULTIES[diffKey];
+    state.difficulty = diffKey;
+    state.rows = diff.rows;
+    state.cols = diff.cols;
+    state.totalMines = diff.mines;
+    state.flagsPlaced = 0;
+    state.revealedCount = 0;
+    state.status = 'idle';
+    state.firstClick = true;
+    state.gameOver = false;
+    state.timer = 0;
+    state.timeLimit = diff.timeLimit;
+    state.timerMode = diff.timeLimit > 0 ? 'countdown' : 'elapsed';
+
+    state.board = createBoard(diff.rows, diff.cols, diff.mines);
+
+    if (!keepSave) clearSave();
+    renderDifficultyBtns();
+    updateInfoBar();
+    statusMsg.textContent = diff.timeLimit > 0
+      ? `点击格子开始游戏（限时 ${fmtTime(diff.timeLimit)}）`
+      : '点击格子开始游戏';
+    statusMsg.className = 'status-msg';
+    renderBoard();
+    autoSave();
+  }
+
+  function startGame(firstR, firstC) {
+    const diff = DIFFICULTIES[state.difficulty];
+    state.firstClick = false;
+    state.status = 'playing';
+    // Place mines avoiding first click
+    placeMines(state.board, state.rows, state.cols, state.totalMines, firstR, firstC);
+    startTimer();
+    // Reveal first cell
+    revealCell(firstR, firstC);
+    // Don't overwrite status if the first click already won (e.g. tiny board)
+    if (state.gameOver) return;
+    statusMsg.textContent = '游戏进行中...';
+    statusMsg.className = 'status-msg';
+    autoSave();
+  }
+
+  function revealCell(r, c) {
+    if (state.gameOver) return false;
+    if (r < 0 || r >= state.rows || c < 0 || c >= state.cols) return false;
+    const cell = state.board[r][c];
+    if (cell.revealed || cell.flagged) return false;
+
+    // First click → start game (place mines, then reveal)
+    if (state.firstClick) {
+      startGame(r, c);
+      return true;
+    }
+
+    if (cell.mine) {
+      // Game over
+      cell._hit = true;
+      revealAllMines(state.board, state.rows, state.cols, r, c);
+      state.status = 'lost';
+      state.gameOver = true;
       stopTimer();
-      state.timer = 0;
-      state.timerInterval = setInterval(() => {
-        state.timer++;
-        if (state.timerMode === 'countdown') {
-          const remaining = Math.max(0, state.timeLimit - state.timer);
-          timerEl.textContent = `⏱ ${fmtTime(remaining)}`;
-          if (remaining <= 60) timerEl.classList.add('danger');
-          if (remaining <= 0) {
-            // Time's up → game over
-            stopTimer();
-            state.status = 'lost';
-            state.gameOver = true;
-            statusMsg.textContent = '⏰ 时间到！游戏结束';
-            statusMsg.className = 'status-msg lose';
-            revealAllMines(state.board, state.rows, state.cols, -1, -1);
-            renderBoard();
-            boardWrapper.style.animation = 'none';
-            void boardWrapper.offsetWidth;
-            boardWrapper.style.animation = 'shake 0.4s ease';
-            if (navigator.vibrate) navigator.vibrate(200);
-            clearSave();
+      statusMsg.textContent = '💥 踩雷了！游戏结束';
+      statusMsg.className = 'status-msg lose';
+      renderBoard();
+      // Trigger shake animation
+      boardWrapper.style.animation = 'none';
+      void boardWrapper.offsetWidth;
+      boardWrapper.style.animation = 'shake 0.4s ease';
+      if (navigator.vibrate) navigator.vibrate(200);
+      clearSave();
+      return false;
+    }
+
+    // Flood fill
+    const revealed = floodFill(state.board, state.rows, state.cols, r, c);
+    state.revealedCount += revealed;
+    renderBoard();
+    updateInfoBar();
+
+    // Check win
+    if (checkWin(state.board, state.rows, state.cols, state.totalMines)) {
+      state.status = 'won';
+      state.gameOver = true;
+      stopTimer();
+      statusMsg.textContent = '🎉 恭喜通关！';
+      statusMsg.className = 'status-msg win';
+      boardWrapper.style.animation = 'none';
+      void boardWrapper.offsetWidth;
+      boardWrapper.style.animation = 'boardWinPulse 0.8s ease 2';
+      startFireworks();
+      // Auto flag remaining mines
+      for (let rr = 0; rr < state.rows; rr++) {
+        for (let cc = 0; cc < state.cols; cc++) {
+          if (state.board[rr][cc].mine && !state.board[rr][cc].flagged) {
+            state.board[rr][cc].flagged = true;
+            state.flagsPlaced++;
           }
-        } else {
-          timerEl.textContent = `⏱ ${fmtTime(state.timer)}`;
         }
-      }, 1000);
-    }
-
-    function stopTimer() {
-      if (state.timerInterval) {
-        clearInterval(state.timerInterval);
-        state.timerInterval = null;
       }
-      timerEl.classList.remove('danger');
+      updateInfoBar();
+      saveRecord();
+      clearSave();
+      return true;
     }
 
-    // ============================================================
-    //  Render
-    // ============================================================
-    function renderBoard() {
-      const cellSize = getCellSize(state.rows, state.cols);
-      boardEl.style.setProperty('--cell-size', cellSize + 'px');
-      boardEl.style.gridTemplateColumns = `repeat(${state.cols}, var(--cell-size))`;
-      boardEl.innerHTML = '';
+    autoSave();
+    return true;
+  }
 
-      for (let r = 0; r < state.rows; r++) {
-        for (let c = 0; c < state.cols; c++) {
-          const cell = state.board[r][c];
-          const div = document.createElement('div');
-          div.className = 'cell';
-          div.dataset.r = r;
-          div.dataset.c = c;
+  function toggleFlag(r, c) {
+    if (state.gameOver) return;
+    if (state.firstClick) return; // Must click first
+    if (r < 0 || r >= state.rows || c < 0 || c >= state.cols) return;
+    const cell = state.board[r][c];
+    if (cell.revealed) return;
+    cell.flagged = !cell.flagged;
+    state.flagsPlaced += cell.flagged ? 1 : -1;
+    renderBoard();
+    updateInfoBar();
+    autoSave();
+  }
 
-          if (cell.revealed) {
-            if (cell.mine) {
-              div.classList.add(cell._hit ? 'mine-hit' : 'mine-revealed');
-            } else {
-              div.classList.add('revealed');
-              if (cell.adjacent > 0) {
-                div.classList.add('n' + cell.adjacent);
-                div.textContent = cell.adjacent;
-              } else {
-                div.classList.add('n0');
-              }
-            }
-          } else {
-            div.classList.add('hidden');
-            if (cell.flagged) {
-              div.classList.add('flagged');
-            }
+  function chordReveal(r, c) {
+    if (state.gameOver) return;
+    const cell = state.board[r][c];
+    if (!cell.revealed || cell.adjacent === 0) return;
+    // Count flags around
+    let flagCount = 0;
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        if (dr === 0 && dc === 0) continue;
+        const nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < state.rows && nc >= 0 && nc < state.cols && state.board[nr][nc].flagged) flagCount++;
+      }
+    }
+    if (flagCount === cell.adjacent) {
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          if (dr === 0 && dc === 0) continue;
+          const nr = r + dr, nc = c + dc;
+          if (nr >= 0 && nr < state.rows && nc >= 0 && nc < state.cols) {
+            revealCell(nr, nc);
           }
-
-          // Click (left-click or tap)
-          div.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (state.flagMode) {
-              toggleFlag(r, c);
-            } else {
-              revealCell(r, c);
-            }
-          });
-
-          // Right-click (desktop flag)
-          div.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            toggleFlag(r, c);
-          });
-
-          // Double-click / chord
-          div.addEventListener('dblclick', (e) => {
-            e.preventDefault();
-            chordReveal(r, c);
-          });
-
-          boardEl.appendChild(div);
         }
       }
     }
+  }
 
-    function updateInfoBar() {
-      const remaining = state.totalMines - state.flagsPlaced;
-      mineCountEl.textContent = `💣 ${pad2(Math.max(0, remaining))}`;
+  // ============================================================
+  //  Timer
+  // ============================================================
+  function startTimer() {
+    stopTimer();
+    state.timer = 0;
+    state.timerInterval = setInterval(() => {
+      state.timer++;
       if (state.timerMode === 'countdown') {
-        const remainingTime = Math.max(0, state.timeLimit - state.timer);
-        timerEl.textContent = `⏱ ${fmtTime(remainingTime)}`;
-        if (remainingTime <= 60) timerEl.classList.add('danger');
+        const remaining = Math.max(0, state.timeLimit - state.timer);
+        timerEl.textContent = `⏱ ${fmtTime(remaining)}`;
+        if (remaining <= 60) timerEl.classList.add('danger');
+        if (remaining <= 0) {
+          // Time's up → game over
+          stopTimer();
+          state.status = 'lost';
+          state.gameOver = true;
+          statusMsg.textContent = '⏰ 时间到！游戏结束';
+          statusMsg.className = 'status-msg lose';
+          revealAllMines(state.board, state.rows, state.cols, -1, -1);
+          renderBoard();
+          boardWrapper.style.animation = 'none';
+          void boardWrapper.offsetWidth;
+          boardWrapper.style.animation = 'shake 0.4s ease';
+          if (navigator.vibrate) navigator.vibrate(200);
+          clearSave();
+        }
       } else {
         timerEl.textContent = `⏱ ${fmtTime(state.timer)}`;
       }
-    }
+    }, 1000);
+  }
 
-    function renderDifficultyBtns() {
-      document.querySelectorAll('.difficulty-bar button').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.diff === state.difficulty);
-      });
+  function stopTimer() {
+    if (state.timerInterval) {
+      clearInterval(state.timerInterval);
+      state.timerInterval = null;
     }
+    timerEl.classList.remove('danger');
+  }
 
-    // ============================================================
-    //  Records
-    // ============================================================
-    function getRecords() {
-      try {
-        const data = localStorage.getItem(STORAGE_KEYS.records);
-        return data ? JSON.parse(data) : [];
-      } catch { return []; }
+  // ============================================================
+  //  Render
+  // ============================================================
+  function renderBoard() {
+    const cellSize = getCellSize(state.rows, state.cols);
+    boardEl.style.setProperty('--cell-size', cellSize + 'px');
+    boardEl.style.gridTemplateColumns = `repeat(${state.cols}, var(--cell-size))`;
+    boardEl.innerHTML = '';
+
+    for (let r = 0; r < state.rows; r++) {
+      for (let c = 0; c < state.cols; c++) {
+        const cell = state.board[r][c];
+        const div = document.createElement('div');
+        div.className = 'cell';
+        div.dataset.r = r;
+        div.dataset.c = c;
+
+        if (cell.revealed) {
+          if (cell.mine) {
+            div.classList.add(cell._hit ? 'mine-hit' : 'mine-revealed');
+          } else {
+            div.classList.add('revealed');
+            if (cell.adjacent > 0) {
+              div.classList.add('n' + cell.adjacent);
+              div.textContent = cell.adjacent;
+            } else {
+              div.classList.add('n0');
+            }
+          }
+        } else {
+          div.classList.add('hidden');
+          if (cell.flagged) {
+            div.classList.add('flagged');
+          }
+        }
+
+        // Click (left-click or tap)
+        div.addEventListener('click', (e) => {
+          e.preventDefault();
+          if (state.flagMode) {
+            toggleFlag(r, c);
+          } else {
+            revealCell(r, c);
+          }
+        });
+
+        // Right-click (desktop flag)
+        div.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          toggleFlag(r, c);
+        });
+
+        // Double-click / chord
+        div.addEventListener('dblclick', (e) => {
+          e.preventDefault();
+          chordReveal(r, c);
+        });
+
+        boardEl.appendChild(div);
+      }
     }
+  }
 
-    function saveRecord() {
-      const records = getRecords();
-      const diff = DIFFICULTIES[state.difficulty];
-      const elapsed = state.timer;
-      records.push({
-        difficulty: state.difficulty,
-        difficultyLabel: diff.label,
-        time: elapsed,
-        timeStr: fmtTime(elapsed),
-        date: Date.now(),
-        dateStr: fmtDate(Date.now()),
-        rows: state.rows,
-        cols: state.cols,
-        mines: state.totalMines,
-      });
-      // Sort by time ascending, keep top 10
-      records.sort((a, b) => a.time - b.time);
-      const trimmed = records.slice(0, 10);
-      try {
-        localStorage.setItem(STORAGE_KEYS.records, JSON.stringify(trimmed));
-      } catch { }
+  function updateInfoBar() {
+    const remaining = state.totalMines - state.flagsPlaced;
+    mineCountEl.textContent = `💣 ${pad2(Math.max(0, remaining))}`;
+    if (state.timerMode === 'countdown') {
+      const remainingTime = Math.max(0, state.timeLimit - state.timer);
+      timerEl.textContent = `⏱ ${fmtTime(remainingTime)}`;
+      if (remainingTime <= 60) timerEl.classList.add('danger');
+    } else {
+      timerEl.textContent = `⏱ ${fmtTime(state.timer)}`;
     }
+  }
 
-    function showRecords() {
-      const records = getRecords();
-      recordsBody.innerHTML = '';
-      if (records.length === 0) {
-        recordsBody.innerHTML = '<tr><td colspan="4" class="empty-msg">暂无通关记录，快去玩一局吧！</td></tr>';
-      } else {
-        records.forEach((rec, i) => {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `<td>${i + 1}</td>
+  function renderDifficultyBtns() {
+    document.querySelectorAll('.difficulty-bar button').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.diff === state.difficulty);
+    });
+  }
+
+  // ============================================================
+  //  Records
+  // ============================================================
+  function getRecords() {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.records);
+      return data ? JSON.parse(data) : [];
+    } catch { return []; }
+  }
+
+  function saveRecord() {
+    const records = getRecords();
+    const diff = DIFFICULTIES[state.difficulty];
+    const elapsed = state.timer;
+    records.push({
+      difficulty: state.difficulty,
+      difficultyLabel: diff.label,
+      time: elapsed,
+      timeStr: fmtTime(elapsed),
+      date: Date.now(),
+      dateStr: fmtDate(Date.now()),
+      rows: state.rows,
+      cols: state.cols,
+      mines: state.totalMines,
+    });
+    // Sort by time ascending, keep top 10
+    records.sort((a, b) => a.time - b.time);
+    const trimmed = records.slice(0, 10);
+    try {
+      localStorage.setItem(STORAGE_KEYS.records, JSON.stringify(trimmed));
+    } catch { }
+  }
+
+  function showRecords() {
+    const records = getRecords();
+    recordsBody.innerHTML = '';
+    if (records.length === 0) {
+      recordsBody.innerHTML = '<tr><td colspan="4" class="empty-msg">暂无通关记录，快去玩一局吧！</td></tr>';
+    } else {
+      records.forEach((rec, i) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${i + 1}</td>
         <td>${rec.difficultyLabel} (${rec.cols}×${rec.rows})</td>
         <td>${rec.timeStr}</td>
         <td>${rec.dateStr}</td>`;
-          recordsBody.appendChild(tr);
-        });
-      }
-      recordsModal.classList.add('show');
-    }
-
-    // ============================================================
-    //  Custom Modal
-    // ============================================================
-    function openCustomModal() {
-      const cfg = getCustomConfig();
-      document.getElementById('customCols').value = cfg ? cfg.cols : 15;
-      document.getElementById('customRows').value = cfg ? cfg.rows : 15;
-      document.getElementById('customMines').value = cfg ? cfg.mines : 50;
-      document.getElementById('customTimeLimit').value = cfg ? cfg.timeLimit : 0;
-      updateMinesHint();
-      document.getElementById('customFormError').textContent = '';
-      document.querySelectorAll('.custom-form input').forEach(el => el.classList.remove('error'));
-      document.getElementById('customModal').classList.add('show');
-    }
-
-    function updateMinesHint() {
-      const rows = parseInt(document.getElementById('customRows').value) || 15;
-      const cols = parseInt(document.getElementById('customCols').value) || 15;
-      const maxMines = rows * cols - 1;
-      const hint = document.getElementById('minesHint');
-      hint.textContent = `1 ~ ${maxMines}`;
-      const minesInput = document.getElementById('customMines');
-      minesInput.max = maxMines;
-      if (parseInt(minesInput.value) > maxMines) minesInput.value = maxMines;
-    }
-
-    function validateCustomForm() {
-      const rows = parseInt(document.getElementById('customRows').value);
-      const cols = parseInt(document.getElementById('customCols').value);
-      const mines = parseInt(document.getElementById('customMines').value);
-      const timeLimit = parseInt(document.getElementById('customTimeLimit').value);
-      const errEl = document.getElementById('customFormError');
-
-      // Reset errors
-      document.querySelectorAll('.custom-form input').forEach(el => el.classList.remove('error'));
-
-      if (isNaN(rows) || rows < 5 || rows > 50) {
-        errEl.textContent = '高度请输入 5 ~ 50 之间的数字';
-        document.getElementById('customRows').classList.add('error');
-        return null;
-      }
-      if (isNaN(cols) || cols < 5 || cols > 50) {
-        errEl.textContent = '宽度请输入 5 ~ 50 之间的数字';
-        document.getElementById('customCols').classList.add('error');
-        return null;
-      }
-      const maxMines = rows * cols - 1;
-      if (isNaN(mines) || mines < 1 || mines > maxMines) {
-        errEl.textContent = `雷数请输入 1 ~ ${maxMines} 之间的数字`;
-        document.getElementById('customMines').classList.add('error');
-        return null;
-      }
-      if (isNaN(timeLimit) || timeLimit < 0 || timeLimit > 3600) {
-        errEl.textContent = '限时请输入 0 ~ 3600 之间的数字（0=不限时）';
-        document.getElementById('customTimeLimit').classList.add('error');
-        return null;
-      }
-      errEl.textContent = '';
-      return { rows, cols, mines, timeLimit };
-    }
-
-    function applyCustomSettings() {
-      const result = validateCustomForm();
-      if (!result) return;
-      saveCustomConfig(result.rows, result.cols, result.mines, result.timeLimit);
-      document.getElementById('customModal').classList.remove('show');
-      if (state.status === 'playing') {
-        clearSave();
-      }
-      initGame('custom');
-    }
-
-    // ============================================================
-    //  Save / Load (localStorage)
-    // ============================================================
-    function autoSave() {
-      if (state.status === 'won' || state.status === 'lost') return;
-      if (state.firstClick) return; // nothing to save yet
-      const saveData = {
-        difficulty: state.difficulty,
-        board: state.board.map(row => row.map(cell => ({
-          mine: cell.mine,
-          revealed: cell.revealed,
-          flagged: cell.flagged,
-          adjacent: cell.adjacent,
-          _hit: cell._hit || false,
-        }))),
-        timer: state.timer,
-        flagsPlaced: state.flagsPlaced,
-        status: state.status,
-        gameOver: state.gameOver,
-        firstClick: state.firstClick,
-        timeLimit: state.timeLimit,
-        timerMode: state.timerMode,
-        totalMines: state.totalMines,
-        rows: state.rows,
-        cols: state.cols,
-        timestamp: Date.now(),
-      };
-      try {
-        localStorage.setItem(STORAGE_KEYS.save, JSON.stringify(saveData));
-      } catch { }
-    }
-
-    function clearSave() {
-      try { localStorage.removeItem(STORAGE_KEYS.save); } catch { }
-    }
-
-    function hasSavedGame() {
-      try { return localStorage.getItem(STORAGE_KEYS.save) !== null; } catch { return false; }
-    }
-
-    // ---- Confirm dialog (replaces native confirm()) ----
-    function showConfirm(msg) {
-      return new Promise((resolve) => {
-        const dialog = document.getElementById('confirmDialog');
-        const msgEl = document.getElementById('confirmMsg');
-        const okBtn = document.getElementById('confirmOk');
-        const cancelBtn = document.getElementById('confirmCancel');
-
-        msgEl.textContent = msg;
-        dialog.classList.add('show');
-
-        const cleanup = (result) => {
-          dialog.classList.remove('show');
-          okBtn.removeEventListener('click', onOk);
-          cancelBtn.removeEventListener('click', onCancel);
-          resolve(result);
-        };
-
-        const onOk = () => cleanup(true);
-        const onCancel = () => cleanup(false);
-
-        okBtn.addEventListener('click', onOk);
-        cancelBtn.addEventListener('click', onCancel);
+        recordsBody.appendChild(tr);
       });
     }
+    recordsModal.classList.add('show');
+  }
 
-    // ---- Custom config ----
-    function getCustomConfig() {
-      try {
-        const data = localStorage.getItem(STORAGE_KEYS.custom);
-        if (data) {
-          const cfg = JSON.parse(data);
-          // Validate
-          if (cfg.rows && cfg.cols && cfg.mines >= 1 && cfg.cols >= 5) {
-            return cfg;
-          }
-        }
-      } catch { }
+  // ============================================================
+  //  Custom Modal
+  // ============================================================
+  function openCustomModal() {
+    const cfg = getCustomConfig();
+    document.getElementById('customCols').value = cfg ? cfg.cols : 15;
+    document.getElementById('customRows').value = cfg ? cfg.rows : 15;
+    document.getElementById('customMines').value = cfg ? cfg.mines : 50;
+    document.getElementById('customTimeLimit').value = cfg ? cfg.timeLimit : 0;
+    updateMinesHint();
+    document.getElementById('customFormError').textContent = '';
+    document.querySelectorAll('.custom-form input').forEach(el => el.classList.remove('error'));
+    document.getElementById('customModal').classList.add('show');
+  }
+
+  function updateMinesHint() {
+    const rows = parseInt(document.getElementById('customRows').value) || 15;
+    const cols = parseInt(document.getElementById('customCols').value) || 15;
+    const maxMines = rows * cols - 1;
+    const hint = document.getElementById('minesHint');
+    hint.textContent = `1 ~ ${maxMines}`;
+    const minesInput = document.getElementById('customMines');
+    minesInput.max = maxMines;
+    if (parseInt(minesInput.value) > maxMines) minesInput.value = maxMines;
+  }
+
+  function validateCustomForm() {
+    const rows = parseInt(document.getElementById('customRows').value);
+    const cols = parseInt(document.getElementById('customCols').value);
+    const mines = parseInt(document.getElementById('customMines').value);
+    const timeLimit = parseInt(document.getElementById('customTimeLimit').value);
+    const errEl = document.getElementById('customFormError');
+
+    // Reset errors
+    document.querySelectorAll('.custom-form input').forEach(el => el.classList.remove('error'));
+
+    if (isNaN(rows) || rows < 5 || rows > 50) {
+      errEl.textContent = '高度请输入 5 ~ 50 之间的数字';
+      document.getElementById('customRows').classList.add('error');
       return null;
     }
-
-    function saveCustomConfig(rows, cols, mines, timeLimit) {
-      try {
-        localStorage.setItem(STORAGE_KEYS.custom, JSON.stringify({ rows, cols, mines, timeLimit }));
-      } catch { }
+    if (isNaN(cols) || cols < 5 || cols > 50) {
+      errEl.textContent = '宽度请输入 5 ~ 50 之间的数字';
+      document.getElementById('customCols').classList.add('error');
+      return null;
     }
-
-    function applyCustomConfigToDifficulty() {
-      const cfg = getCustomConfig();
-      if (cfg) {
-        DIFFICULTIES.custom.rows = cfg.rows;
-        DIFFICULTIES.custom.cols = cfg.cols;
-        DIFFICULTIES.custom.mines = cfg.mines;
-        DIFFICULTIES.custom.timeLimit = cfg.timeLimit;
-      }
+    const maxMines = rows * cols - 1;
+    if (isNaN(mines) || mines < 1 || mines > maxMines) {
+      errEl.textContent = `雷数请输入 1 ~ ${maxMines} 之间的数字`;
+      document.getElementById('customMines').classList.add('error');
+      return null;
     }
-
-    function loadSavedGame() {
-      try {
-        const data = localStorage.getItem(STORAGE_KEYS.save);
-        if (!data) return false;
-        const saved = JSON.parse(data);
-
-        // Restore state
-        state.difficulty = saved.difficulty;
-        state.rows = saved.rows || saved.board.length;
-        state.cols = saved.cols || saved.board[0].length;
-        state.totalMines = saved.totalMines || DIFFICULTIES[saved.difficulty].mines;
-        state.board = saved.board;
-        state.timer = saved.timer;
-        state.flagsPlaced = saved.flagsPlaced;
-        state.status = saved.status;
-        state.gameOver = saved.gameOver;
-        state.firstClick = saved.firstClick;
-        state.timeLimit = saved.timeLimit;
-        state.timerMode = saved.timerMode;
-
-        renderDifficultyBtns();
-        updateInfoBar();
-        if (state.status === 'playing') {
-          startTimer();
-          statusMsg.textContent = '游戏进行中...';
-          statusMsg.className = 'status-msg';
-        } else if (state.status === 'won') {
-          statusMsg.textContent = '🎉 恭喜通关！';
-          statusMsg.className = 'status-msg win';
-        } else if (state.status === 'lost') {
-          statusMsg.textContent = '💥 游戏结束';
-          statusMsg.className = 'status-msg lose';
-        }
-        renderBoard();
-        return true;
-      } catch {
-        clearSave();
-        return false;
-      }
+    if (isNaN(timeLimit) || timeLimit < 0 || timeLimit > 3600) {
+      errEl.textContent = '限时请输入 0 ~ 3600 之间的数字（0=不限时）';
+      document.getElementById('customTimeLimit').classList.add('error');
+      return null;
     }
+    errEl.textContent = '';
+    return { rows, cols, mines, timeLimit };
+  }
 
-    // ============================================================
-    //  Event Bindings
-    // ============================================================
+  function applyCustomSettings() {
+    const result = validateCustomForm();
+    if (!result) return;
+    saveCustomConfig(result.rows, result.cols, result.mines, result.timeLimit);
+    document.getElementById('customModal').classList.remove('show');
+    if (state.status === 'playing') {
+      clearSave();
+    }
+    initGame('custom');
+  }
 
-    // Difficulty buttons
-    document.querySelectorAll('.difficulty-bar button').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const diff = btn.dataset.diff;
-        if (diff === state.difficulty && state.firstClick) return;
-        // Custom: show settings modal
-        if (diff === 'custom') {
-          if (state.status === 'playing') {
-            if (!await showConfirm('当前游戏正在进行中，确定要修改设置吗？')) return;
-          }
-          openCustomModal();
-          return;
-        }
-        // Check if game in progress
-        if (state.status === 'playing') {
-          if (!await showConfirm('当前游戏正在进行中，确定要开始新游戏吗？')) return;
-        }
-        clearSave();
-        initGame(diff);
-      });
+  // ============================================================
+  //  Save / Load (localStorage)
+  // ============================================================
+  function autoSave() {
+    if (state.status === 'won' || state.status === 'lost') return;
+    if (state.firstClick) return; // nothing to save yet
+    const saveData = {
+      difficulty: state.difficulty,
+      board: state.board.map(row => row.map(cell => ({
+        mine: cell.mine,
+        revealed: cell.revealed,
+        flagged: cell.flagged,
+        adjacent: cell.adjacent,
+        _hit: cell._hit || false,
+      }))),
+      timer: state.timer,
+      flagsPlaced: state.flagsPlaced,
+      status: state.status,
+      gameOver: state.gameOver,
+      firstClick: state.firstClick,
+      timeLimit: state.timeLimit,
+      timerMode: state.timerMode,
+      totalMines: state.totalMines,
+      rows: state.rows,
+      cols: state.cols,
+      timestamp: Date.now(),
+    };
+    try {
+      localStorage.setItem(STORAGE_KEYS.save, JSON.stringify(saveData));
+    } catch { }
+  }
+
+  function clearSave() {
+    try { localStorage.removeItem(STORAGE_KEYS.save); } catch { }
+  }
+
+  function hasSavedGame() {
+    try { return localStorage.getItem(STORAGE_KEYS.save) !== null; } catch { return false; }
+  }
+
+  // ---- Confirm dialog (replaces native confirm()) ----
+  function showConfirm(msg) {
+    return new Promise((resolve) => {
+      const dialog = document.getElementById('confirmDialog');
+      const msgEl = document.getElementById('confirmMsg');
+      const okBtn = document.getElementById('confirmOk');
+      const cancelBtn = document.getElementById('confirmCancel');
+
+      msgEl.textContent = msg;
+      dialog.classList.add('show');
+
+      const cleanup = (result) => {
+        dialog.classList.remove('show');
+        okBtn.removeEventListener('click', onOk);
+        cancelBtn.removeEventListener('click', onCancel);
+        resolve(result);
+      };
+
+      const onOk = () => cleanup(true);
+      const onCancel = () => cleanup(false);
+
+      okBtn.addEventListener('click', onOk);
+      cancelBtn.addEventListener('click', onCancel);
     });
+  }
 
-    // New game button
-    document.getElementById('btnNew').addEventListener('click', async () => {
+  // ---- Custom config ----
+  function getCustomConfig() {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.custom);
+      if (data) {
+        const cfg = JSON.parse(data);
+        // Validate
+        if (cfg.rows && cfg.cols && cfg.mines >= 1 && cfg.cols >= 5) {
+          return cfg;
+        }
+      }
+    } catch { }
+    return null;
+  }
+
+  function saveCustomConfig(rows, cols, mines, timeLimit) {
+    try {
+      localStorage.setItem(STORAGE_KEYS.custom, JSON.stringify({ rows, cols, mines, timeLimit }));
+    } catch { }
+  }
+
+  function applyCustomConfigToDifficulty() {
+    const cfg = getCustomConfig();
+    if (cfg) {
+      DIFFICULTIES.custom.rows = cfg.rows;
+      DIFFICULTIES.custom.cols = cfg.cols;
+      DIFFICULTIES.custom.mines = cfg.mines;
+      DIFFICULTIES.custom.timeLimit = cfg.timeLimit;
+    }
+  }
+
+  function loadSavedGame() {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.save);
+      if (!data) return false;
+      const saved = JSON.parse(data);
+
+      // Restore state
+      state.difficulty = saved.difficulty;
+      state.rows = saved.rows || saved.board.length;
+      state.cols = saved.cols || saved.board[0].length;
+      state.totalMines = saved.totalMines || DIFFICULTIES[saved.difficulty].mines;
+      state.board = saved.board;
+      state.timer = saved.timer;
+      state.flagsPlaced = saved.flagsPlaced;
+      state.status = saved.status;
+      state.gameOver = saved.gameOver;
+      state.firstClick = saved.firstClick;
+      state.timeLimit = saved.timeLimit;
+      state.timerMode = saved.timerMode;
+
+      renderDifficultyBtns();
+      updateInfoBar();
       if (state.status === 'playing') {
-        if (!await showConfirm('当前游戏正在进行中，确定要重新开始吗？')) return;
+        startTimer();
+        statusMsg.textContent = '游戏进行中...';
+        statusMsg.className = 'status-msg';
+      } else if (state.status === 'won') {
+        statusMsg.textContent = '🎉 恭喜通关！';
+        statusMsg.className = 'status-msg win';
+      } else if (state.status === 'lost') {
+        statusMsg.textContent = '💥 游戏结束';
+        statusMsg.className = 'status-msg lose';
+      }
+      renderBoard();
+      return true;
+    } catch {
+      clearSave();
+      return false;
+    }
+  }
+
+  // ============================================================
+  //  Event Bindings
+  // ============================================================
+
+  // Difficulty buttons
+  document.querySelectorAll('.difficulty-bar button').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const diff = btn.dataset.diff;
+      if (diff === state.difficulty && state.firstClick) return;
+      // Custom: show settings modal
+      if (diff === 'custom') {
+        if (state.status === 'playing') {
+          if (!await showConfirm('当前游戏正在进行中，确定要修改设置吗？')) return;
+        }
+        openCustomModal();
+        return;
+      }
+      // Check if game in progress
+      if (state.status === 'playing') {
+        if (!await showConfirm('当前游戏正在进行中，确定要开始新游戏吗？')) return;
       }
       clearSave();
-      initGame(state.difficulty);
+      initGame(diff);
     });
+  });
 
-    // Flag toggle (mobile)
-    flagToggle.addEventListener('click', () => {
-      state.flagMode = !state.flagMode;
-      flagToggle.classList.toggle('active', state.flagMode);
-    });
+  // New game button
+  document.getElementById('btnNew').addEventListener('click', async () => {
+    if (state.status === 'playing') {
+      if (!await showConfirm('当前游戏正在进行中，确定要重新开始吗？')) return;
+    }
+    clearSave();
+    initGame(state.difficulty);
+  });
 
-    // Records button
-    document.getElementById('btnRecords').addEventListener('click', showRecords);
+  // Flag toggle (mobile)
+  flagToggle.addEventListener('click', () => {
+    state.flagMode = !state.flagMode;
+    flagToggle.classList.toggle('active', state.flagMode);
+  });
 
-    // Modal close
-    document.getElementById('modalClose').addEventListener('click', () => {
-      recordsModal.classList.remove('show');
-    });
-    recordsModal.addEventListener('click', (e) => {
-      if (e.target === recordsModal) recordsModal.classList.remove('show');
-    });
+  // Records button
+  document.getElementById('btnRecords').addEventListener('click', showRecords);
 
-    // ---- Custom modal ----
-    document.getElementById('customApply').addEventListener('click', applyCustomSettings);
-    document.getElementById('customCancel').addEventListener('click', () => {
+  // Modal close
+  document.getElementById('modalClose').addEventListener('click', () => {
+    recordsModal.classList.remove('show');
+  });
+  recordsModal.addEventListener('click', (e) => {
+    if (e.target === recordsModal) recordsModal.classList.remove('show');
+  });
+
+  // ---- Custom modal ----
+  document.getElementById('customApply').addEventListener('click', applyCustomSettings);
+  document.getElementById('customCancel').addEventListener('click', () => {
+    document.getElementById('customModal').classList.remove('show');
+  });
+  document.getElementById('customModal').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('customModal')) {
       document.getElementById('customModal').classList.remove('show');
+    }
+  });
+  // Update mines hint when rows/cols change
+  document.getElementById('customRows').addEventListener('input', updateMinesHint);
+  document.getElementById('customCols').addEventListener('input', updateMinesHint);
+  // Enter key to submit
+  document.querySelectorAll('#customModal input').forEach(el => {
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') applyCustomSettings();
     });
-    document.getElementById('customModal').addEventListener('click', (e) => {
-      if (e.target === document.getElementById('customModal')) {
-        document.getElementById('customModal').classList.remove('show');
-      }
-    });
-    // Update mines hint when rows/cols change
-    document.getElementById('customRows').addEventListener('input', updateMinesHint);
-    document.getElementById('customCols').addEventListener('input', updateMinesHint);
-    // Enter key to submit
-    document.querySelectorAll('#customModal input').forEach(el => {
-      el.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') applyCustomSettings();
-      });
-    });
+  });
 
-    // Resume buttons
-    const resumeToast = document.getElementById('resumeToast');
-    document.getElementById('resumeYes').addEventListener('click', () => {
-      resumeToast.classList.remove('show');
-      if (loadSavedGame()) {
-        document.getElementById('btnResume').style.display = 'none';
-      } else {
-        initGame(state.difficulty);
-      }
-    });
-    document.getElementById('resumeNo').addEventListener('click', () => {
-      resumeToast.classList.remove('show');
-      clearSave();
-      initGame(state.difficulty);
-    });
-
-    document.getElementById('btnResume').addEventListener('click', () => {
-      loadSavedGame();
+  // Resume buttons
+  const resumeToast = document.getElementById('resumeToast');
+  document.getElementById('resumeYes').addEventListener('click', () => {
+    resumeToast.classList.remove('show');
+    if (loadSavedGame()) {
       document.getElementById('btnResume').style.display = 'none';
-    });
+    } else {
+      initGame(state.difficulty);
+    }
+  });
+  document.getElementById('resumeNo').addEventListener('click', () => {
+    resumeToast.classList.remove('show');
+    clearSave();
+    initGame(state.difficulty);
+  });
 
-    // Keyboard shortcut: F for flag toggle
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'f' || e.key === 'F') {
-        flagToggle.click();
-      }
-    });
+  document.getElementById('btnResume').addEventListener('click', () => {
+    loadSavedGame();
+    document.getElementById('btnResume').style.display = 'none';
+  });
 
-    // ============================================================
-    //  Fireworks animation
-    // ============================================================
-    let _fireworksAnimId = null;
+  // Keyboard shortcut: F for flag toggle
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'f' || e.key === 'F') {
+      flagToggle.click();
+    }
+  });
 
-    function startFireworks() {
-      // Cancel any previous fireworks animation
-      if (_fireworksAnimId) {
-        cancelAnimationFrame(_fireworksAnimId);
-        _fireworksAnimId = null;
-      }
+  // ============================================================
+  //  Fireworks animation (DOM-based confetti, no canvas issues)
+  // ============================================================
+  let _fireworksTimer = null;
 
-      const canvas = document.getElementById('fireworksCanvas');
-      const ctx = canvas.getContext('2d');
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-      canvas.classList.add('active');
+  function startFireworks() {
+    // Clean up any previous fireworks
+    stopFireworks();
 
-      const colors = ['#ff6b6b', '#feca57', '#48dbfb', '#ff9ff3', '#54a0ff', '#5f27cd', '#01a3a4', '#f368e0', '#ff6348', '#7bed9f'];
-      const particles = [];
-      const burstCount = 6;
-      const particleCount = 60;
-      let frame = 0;
+    const colors = ['#ff6b6b', '#feca57', '#48dbfb', '#ff9ff3', '#54a0ff', '#5f27cd', '#01a3a4', '#f368e0', '#ff6348', '#7bed9f'];
+    const container = document.body;
+    const particles = [];
+    const burstCount = 6;
+    const particlesPerBurst = 50;
 
-      // Create bursts at random positions
-      for (let b = 0; b < burstCount; b++) {
-        const cx = canvas.width * (0.15 + Math.random() * 0.7);
-        const cy = canvas.height * (0.15 + Math.random() * 0.6);
-        const hue = Math.floor(Math.random() * 360);
-        for (let i = 0; i < particleCount; i++) {
-          const angle = Math.random() * Math.PI * 2;
-          const speed = 2 + Math.random() * 6;
-          particles.push({
-            x: cx, y: cy,
-            vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed,
-            life: 1,
-            decay: 0.008 + Math.random() * 0.015,
-            size: 2 + Math.random() * 4,
-            color: colors[Math.floor(Math.random() * colors.length)],
-          });
-        }
-      }
-
-      function animate() {
-        frame++;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        let alive = false;
-        for (const p of particles) {
-          if (p.life <= 0) continue;
-          alive = true;
-          p.x += p.vx;
-          p.y += p.vy;
-          p.vy += 0.06; // gravity
-          p.vx *= 0.98;
-          p.vy *= 0.98;
-          p.life -= p.decay;
-          ctx.globalAlpha = Math.max(0, p.life);
-          ctx.fillStyle = p.color;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        ctx.globalAlpha = 1;
-
-        // Spawn 1-2 new bursts per frame while animating
-        if (frame < 120 && frame % 15 === 0) {
-          const cx = canvas.width * (0.15 + Math.random() * 0.7);
-          const cy = canvas.height * (0.15 + Math.random() * 0.6);
-          for (let i = 0; i < 40; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const speed = 2 + Math.random() * 5;
-            particles.push({
-              x: cx, y: cy,
-              vx: Math.cos(angle) * speed,
-              vy: Math.sin(angle) * speed,
-              life: 1,
-              decay: 0.01 + Math.random() * 0.018,
-              size: 2 + Math.random() * 4,
-              color: colors[Math.floor(Math.random() * colors.length)],
-            });
-          }
-        }
-
-        if (alive || frame < 120) {
-          _fireworksAnimId = requestAnimationFrame(animate);
-        } else {
-          // Clear BEFORE hiding — clearRect doesn't work on hidden canvas
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          canvas.width = canvas.width; // force full canvas reset
-          canvas.classList.remove('active');
-          _fireworksAnimId = null;
-        }
-      }
-
-      _fireworksAnimId = requestAnimationFrame(animate);
+    // Create initial bursts
+    for (let b = 0; b < burstCount; b++) {
+      const cx = window.innerWidth * (0.15 + Math.random() * 0.7);
+      const cy = window.innerHeight * (0.15 + Math.random() * 0.6);
+      createBurst(cx, cy, particlesPerBurst);
     }
 
-    // ============================================================
-    //  Init
-    // ============================================================
-    window.addEventListener('DOMContentLoaded', () => {
-      // Check saved game first — don't init yet if we need to resume
-      if (hasSavedGame()) {
-        // Load saved data to restore difficulty settings, but don't clear save
-        const saved = JSON.parse(localStorage.getItem(STORAGE_KEYS.save));
-        applyCustomConfigToDifficulty();
-        initGame(saved.difficulty, true);
-        resumeToast.classList.add('show');
-      } else {
-        initGame('easy');
+    function createBurst(cx, cy, count) {
+      for (let i = 0; i < count; i++) {
+        const el = document.createElement('div');
+        const size = 4 + Math.random() * 6;
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 4 + Math.random() * 10;
+        el.style.cssText = `
+            position: fixed; left:${cx}px; top:${cy}px; width:${size}px; height:${size}px;
+            background:${colors[Math.floor(Math.random() * colors.length)]};
+            border-radius:${Math.random() > 0.5 ? '50%' : '2px'};
+            pointer-events:none; z-index:9999;
+            transform:translate(-50%,-50%);
+          `;
+        container.appendChild(el);
+        particles.push({
+          el, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+          life: 1, decay: 0.008 + Math.random() * 0.015,
+          rot: Math.random() * 360, rotSpeed: (Math.random() - 0.5) * 10,
+        });
+      }
+    }
+
+    let frame = 0;
+    let animId;
+
+    function animate() {
+      frame++;
+      let alive = false;
+      for (const p of particles) {
+        if (!p.el) continue;
+        if (p.life <= 0) {
+          if (p.el.parentNode) p.el.parentNode.removeChild(p.el);
+          p.el = null;
+          continue;
+        }
+        alive = true;
+        p.vy += 0.12; // gravity
+        p.vx *= 0.98;
+        p.vy *= 0.98;
+        p.life -= p.decay;
+        p.rot += p.rotSpeed;
+        const x = parseFloat(p.el.style.left) + p.vx;
+        const y = parseFloat(p.el.style.top) + p.vy;
+        p.el.style.left = x + 'px';
+        p.el.style.top = y + 'px';
+        p.el.style.transform = `translate(-50%,-50%) rotate(${p.rot}deg)`;
+        p.el.style.opacity = Math.max(0, p.life);
       }
 
-      // Auto-recalculate cell size on resize
-      let resizeTimer;
-      window.addEventListener('resize', () => {
-        clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(() => {
-          if (state.board.length > 0) renderBoard();
-        }, 200);
-      });
+      // Spawn new bursts periodically
+      if (frame < 120 && frame % 15 === 0) {
+        const cx = window.innerWidth * (0.15 + Math.random() * 0.7);
+        const cy = window.innerHeight * (0.15 + Math.random() * 0.6);
+        createBurst(cx, cy, 35);
+      }
 
-      // Save game when user switches tabs or closes the page
-      document.addEventListener('visibilitychange', () => {
-        if (document.hidden) autoSave();
-      });
-      window.addEventListener('beforeunload', () => {
-        autoSave();
-      });
+      if (alive || frame < 120) {
+        animId = requestAnimationFrame(animate);
+      } else {
+        // Final cleanup: remove any remaining elements
+        for (const p of particles) {
+          if (p.el && p.el.parentNode) p.el.parentNode.removeChild(p.el);
+        }
+        particles.length = 0;
+        if (animId) cancelAnimationFrame(animId);
+        _fireworksTimer = null;
+      }
+    }
+
+    animId = requestAnimationFrame(animate);
+    _fireworksTimer = { cancel: () => { if (animId) cancelAnimationFrame(animId); } };
+  }
+
+  function stopFireworks() {
+    if (_fireworksTimer) {
+      // Remove all confetti elements from DOM
+      const els = document.querySelectorAll('div[style*="z-index:9999"]');
+      for (const el of els) el.remove();
+      _fireworksTimer = null;
+    }
+  }
+
+  // ============================================================
+  //  Init
+  // ============================================================
+  window.addEventListener('DOMContentLoaded', () => {
+    // Check saved game first — don't init yet if we need to resume
+    if (hasSavedGame()) {
+      // Load saved data to restore difficulty settings, but don't clear save
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEYS.save));
+      applyCustomConfigToDifficulty();
+      initGame(saved.difficulty, true);
+      resumeToast.classList.add('show');
+    } else {
+      initGame('easy');
+    }
+
+    // Auto-recalculate cell size on resize
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        if (state.board.length > 0) renderBoard();
+      }, 200);
     });
-  </script>
+
+    // Save game when user switches tabs or closes the page
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) autoSave();
+    });
+    window.addEventListener('beforeunload', () => {
+      autoSave();
+    });
+  });
+</script>
 </body>
 
 </html>
