@@ -1074,7 +1074,31 @@
     records: 'ms_records',
     save: 'ms_save_state',
     custom: 'ms_custom_config',
+    settings: 'ms_settings',
   };
+
+  // ============================================================
+  //  Settings persistence
+  // ============================================================
+  function saveSettings() {
+    try {
+      localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify({
+        sfxVolume: AudioManager._sfxVolume,
+        bgVolume: AudioManager._bgVolume,
+        bgTrack: AudioManager._bgTrack,
+      }));
+    } catch { }
+  }
+  function loadSettings() {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.settings);
+      if (!data) return;
+      const s = JSON.parse(data);
+      if (typeof s.sfxVolume === 'number') AudioManager.setSfxVolume(s.sfxVolume);
+      if (typeof s.bgVolume === 'number') AudioManager.setBgVolume(s.bgVolume);
+      if (typeof s.bgTrack === 'number') AudioManager.setBgTrack(s.bgTrack);
+    } catch { }
+  }
 
   // ============================================================
   //  State
@@ -2203,18 +2227,21 @@
     const v = parseFloat(sfxSlider.value) / 100;
     sfxLabel.textContent = sfxSlider.value;
     AudioManager.setSfxVolume(v);
+    saveSettings();
   });
 
   bgSlider.addEventListener('input', () => {
     const v = parseFloat(bgSlider.value) / 100;
     bgLabel.textContent = bgSlider.value;
     AudioManager.setBgVolume(v);
+    saveSettings();
   });
 
   // BGM track selection
   document.querySelectorAll('input[name="bgTrack"]').forEach(radio => {
     radio.addEventListener('change', () => {
       AudioManager.setBgTrack(parseInt(radio.value));
+      saveSettings();
     });
   });
 
@@ -2339,6 +2366,9 @@
   })();
 
   window.addEventListener('DOMContentLoaded', () => {
+    // Restore saved settings (volume, track)
+    loadSettings();
+
     // Check saved game first — don't init yet if we need to resume
     if (hasSavedGame()) {
       // Load saved data to restore difficulty settings, but don't clear save
