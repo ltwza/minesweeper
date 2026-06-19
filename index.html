@@ -1497,11 +1497,15 @@
     //  Init
     // ============================================================
     window.addEventListener('DOMContentLoaded', () => {
-      initGame('easy');
-
-      // Resume prompt
+      // Check saved game first — don't init yet if we need to resume
       if (hasSavedGame()) {
+        // Load saved data to restore difficulty settings, but don't clear save
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEYS.save));
+        applyCustomConfigToDifficulty();
+        initGame(saved.difficulty, true);
         resumeToast.classList.add('show');
+      } else {
+        initGame('easy');
       }
 
       // Auto-recalculate cell size on resize
@@ -1511,6 +1515,14 @@
         resizeTimer = setTimeout(() => {
           if (state.board.length > 0) renderBoard();
         }, 200);
+      });
+
+      // Save game when user switches tabs or closes the page
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) autoSave();
+      });
+      window.addEventListener('beforeunload', () => {
+        autoSave();
       });
     });
   </script>
