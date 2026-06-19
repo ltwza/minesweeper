@@ -627,30 +627,6 @@
     }
 
     /* Win / Lose animations */
-    @keyframes boardShake {
-
-      0%,
-      100% {
-        transform: translateX(0);
-      }
-
-      20% {
-        transform: translateX(-6px);
-      }
-
-      40% {
-        transform: translateX(6px);
-      }
-
-      60% {
-        transform: translateX(-4px);
-      }
-
-      80% {
-        transform: translateX(4px);
-      }
-    }
-
     @keyframes boardWinPulse {
       0% {
         box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.6);
@@ -665,12 +641,28 @@
       }
     }
 
-    .board-wrapper.shake {
-      animation: boardShake 0.4s ease;
-    }
+    @keyframes shake {
 
-    .board-wrapper.win-pulse {
-      animation: boardWinPulse 0.8s ease 2;
+      0%,
+      100% {
+        transform: translateX(0);
+      }
+
+      20% {
+        transform: translateX(-8px);
+      }
+
+      40% {
+        transform: translateX(8px);
+      }
+
+      60% {
+        transform: translateX(-5px);
+      }
+
+      80% {
+        transform: translateX(5px);
+      }
     }
 
     @keyframes statusBounce {
@@ -1078,6 +1070,8 @@
       startTimer();
       // Reveal first cell
       revealCell(firstR, firstC);
+      // Don't overwrite status if the first click already won (e.g. tiny board)
+      if (state.gameOver) return;
       statusMsg.textContent = '游戏进行中...';
       statusMsg.className = 'status-msg';
       autoSave();
@@ -1105,9 +1099,10 @@
         statusMsg.textContent = '💥 踩雷了！游戏结束';
         statusMsg.className = 'status-msg lose';
         renderBoard();
-        boardWrapper.classList.remove('shake');
-        void boardWrapper.offsetWidth; // force reflow
-        boardWrapper.classList.add('shake');
+        // Trigger shake animation
+        boardWrapper.style.animation = 'none';
+        void boardWrapper.offsetWidth;
+        boardWrapper.style.animation = 'shake 0.4s ease';
         if (navigator.vibrate) navigator.vibrate(200);
         clearSave();
         return false;
@@ -1126,9 +1121,9 @@
         stopTimer();
         statusMsg.textContent = '🎉 恭喜通关！';
         statusMsg.className = 'status-msg win';
-        boardWrapper.classList.remove('win-pulse');
+        boardWrapper.style.animation = 'none';
         void boardWrapper.offsetWidth;
-        boardWrapper.classList.add('win-pulse');
+        boardWrapper.style.animation = 'boardWinPulse 0.8s ease 2';
         startFireworks();
         // Auto flag remaining mines
         for (let rr = 0; rr < state.rows; rr++) {
@@ -1209,9 +1204,9 @@
             statusMsg.className = 'status-msg lose';
             revealAllMines(state.board, state.rows, state.cols, -1, -1);
             renderBoard();
-            boardWrapper.classList.remove('shake');
+            boardWrapper.style.animation = 'none';
             void boardWrapper.offsetWidth;
-            boardWrapper.classList.add('shake');
+            boardWrapper.style.animation = 'shake 0.4s ease';
             if (navigator.vibrate) navigator.vibrate(200);
             clearSave();
           }
