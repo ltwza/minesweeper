@@ -891,7 +891,7 @@
       <button data-diff="medium">🤔 中等 16×16</button>
       <button data-diff="hard">😈 困难 24×20</button>
       <button data-diff="hell">🔥 地狱 28×30</button>
-      <button data-diff="custom">⚙️ 自定义</button>
+      <button data-diff="custom">🎨 自定义</button>
     </div>
 
     <div class="status-msg" id="statusMsg">点击格子开始游戏</div>
@@ -941,10 +941,10 @@
     <div class="modal">
       <h2>🏆 排行榜</h2>
       <div class="records-tabs" id="lbTabs">
-        <button class="records-tab" data-tab="easy">🟢 简单</button>
-        <button class="records-tab" data-tab="medium">🟡 中等</button>
-        <button class="records-tab" data-tab="hard">🟠 困难</button>
-        <button class="records-tab" data-tab="hell">🔴 地狱</button>
+        <button class="records-tab" data-tab="easy">😊 简单</button>
+        <button class="records-tab" data-tab="medium">🤔 中等</button>
+        <button class="records-tab" data-tab="hard">😈 困难</button>
+        <button class="records-tab" data-tab="hell">🔥 地狱</button>
         <button class="records-tab" data-tab="custom">🎨 自定义</button>
       </div>
       <div style="overflow-x:auto">
@@ -1737,8 +1737,14 @@
     } else {
       records.forEach((rec, i) => {
         const tr = document.createElement('tr');
+        let label;
+        if (rec.difficulty === 'custom') {
+          label = `${rec.difficultyLabel || '自定义'} (${rec.cols}×${rec.rows}, ${rec.mines}雷)`;
+        } else {
+          label = `${rec.difficultyLabel} (${rec.cols}×${rec.rows})`;
+        }
         tr.innerHTML = `<td>${i + 1}</td>
-        <td>${rec.difficultyLabel} (${rec.cols}×${rec.rows})</td>
+        <td>${label}</td>
         <td>${rec.timeStr}</td>
         <td>${rec.dateStr}</td>`;
         recordsBody.appendChild(tr);
@@ -1754,10 +1760,10 @@
   const LB_LIMIT = 10;
   const LB_KEYS = ['easy', 'medium', 'hard', 'hell', 'custom'];
   const LB_RULES = {
-    easy: '🟢 简单 9×9 · 按用时从少到多排序，最快在前',
-    medium: '🟡 中等 16×16 · 按用时从少到多排序，最快在前',
-    hard: '🟠 困难 24×20 · 按用时从少到多排序，最快在前',
-    hell: '🔴 地狱 28×30 · 按用时从少到多排序，最快在前',
+    easy: '😊 简单 9×9 · 按用时从少到多排序，最快在前',
+    medium: '🤔 中等 16×16 · 按用时从少到多排序，最快在前',
+    hard: '😈 困难 24×20 · 按用时从少到多排序，最快在前',
+    hell: '🔥 地狱 28×30 · 按用时从少到多排序，最快在前',
     custom: '🎨 自定义 · 按通关时间倒序，最新在前',
   };
 
@@ -1814,10 +1820,10 @@
   let _lbTab = null;
 
   const lbTabRule = {
-    easy: '🟢 简单 9×9 · 按用时从少到多排序，取前 10 名',
-    medium: '🟡 中等 16×16 · 按用时从少到多排序，取前 10 名',
-    hard: '🟠 困难 24×20 · 按用时从少到多排序，取前 10 名',
-    hell: '🔴 地狱 28×30 · 按用时从少到多排序，取前 10 名',
+    easy: '😊 简单 9×9 · 按用时从少到多排序，取前 10 名',
+    medium: '🤔 中等 16×16 · 按用时从少到多排序，取前 10 名',
+    hard: '😈 困难 24×20 · 按用时从少到多排序，取前 10 名',
+    hell: '🔥 地狱 28×30 · 按用时从少到多排序，取前 10 名',
     custom: '🎨 自定义 · 按通关时间倒序，最新在前，取前 10 名',
   };
 
