@@ -1031,11 +1031,6 @@
             style="color:#999;">free-stock-music.com</a>
         </div>
       </div>
-      <div class="settings-group" style="border-top:1px solid #eee;padding-top:10px;margin-top:10px;">
-        <label>📳 震动</label>
-        <button class="btn-new" id="vibrateTestBtn" style="font-size:13px;padding:4px 12px;">测试震动</button>
-        <span id="vibrateStatus" style="margin-left:8px;font-size:12px;color:#666;"></span>
-      </div>
     </div>
   </div>
 
@@ -2221,43 +2216,6 @@
     radio.addEventListener('change', () => {
       AudioManager.setBgTrack(parseInt(radio.value));
     });
-  });
-
-  // Vibration debug
-  const vibrateStatus = document.getElementById('vibrateStatus');
-  const vibrateTestBtn = document.getElementById('vibrateTestBtn');
-
-  // Detect vibration support when settings opens
-  document.getElementById('btnSettingsTop').addEventListener('click', () => {
-    const s = 'vibrate' in navigator;
-    vibrateStatus.textContent = s
-      ? `✅ 支持 (API 存在)`
-      : `❌ 不支持 (navigator.vibrate 不存在)`;
-    vibrateStatus.style.color = s ? '#27ae60' : '#e74c3c';
-  });
-
-  vibrateTestBtn.addEventListener('click', () => {
-    const s = 'vibrate' in navigator;
-    if (!s) {
-      vibrateStatus.textContent = '❌ 此浏览器不支持震动';
-      vibrateStatus.style.color = '#e74c3c';
-      return;
-    }
-    vibrateStatus.textContent = '⏳ 尝试震动...';
-    vibrateStatus.style.color = '#f39c12';
-    try {
-      const r = navigator.vibrate([100, 80, 100, 80, 100]);
-      vibrateStatus.textContent = r
-        ? '✅ 已触发，若仍无震动请检查：'
-        : '❌ 震动请求被拒绝 (返回 false)';
-      if (r) {
-        vibrateStatus.innerHTML = '✅ 已触发，若仍无震动请检查：<br>1. 设置→声音→震动强度<br>2. 关闭省电模式<br>3. 用系统 Chrome 打开而非微信';
-      }
-      vibrateStatus.style.color = r ? '#27ae60' : '#e74c3c';
-    } catch (e) {
-      vibrateStatus.textContent = `❌ 震动调用异常: ${e.message}`;
-      vibrateStatus.style.color = '#e74c3c';
-    }
   });
 
   settingsModal.addEventListener('click', (e) => {
