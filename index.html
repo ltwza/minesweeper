@@ -169,6 +169,7 @@
       border-radius: 1px;
       font-family: 'Segoe UI', Arial, sans-serif;
       line-height: 1;
+      touch-action: none;
     }
 
     .cell.hidden:hover {
@@ -329,11 +330,10 @@
       position: fixed;
       z-index: 2000;
       background: rgba(44, 62, 80, 0.95);
-      border-radius: 10px;
-      padding: 6px 8px;
-      gap: 8px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-      transform: translate(-50%, -100%);
+      border-radius: 12px;
+      padding: 6px;
+      gap: 6px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
       white-space: nowrap;
       backdrop-filter: blur(4px);
       border: 1px solid rgba(255, 255, 255, 0.15);
@@ -344,10 +344,10 @@
     }
 
     .flag-popup-btn {
-      padding: 10px 16px;
+      padding: 14px 22px;
       border: none;
       border-radius: 8px;
-      font-size: 14px;
+      font-size: 15px;
       font-weight: 600;
       cursor: default;
       color: #fff;
@@ -355,10 +355,12 @@
       transition: background 0.1s;
       user-select: none;
       -webkit-user-select: none;
+      text-align: center;
+      min-width: 90px;
     }
 
     .flag-popup-btn.active {
-      background: rgba(255, 255, 255, 0.3);
+      background: rgba(255, 255, 255, 0.35);
     }
 
     .flag-popup-btn-flag {
@@ -1959,39 +1961,46 @@
           }
         }
 
-        // Click / tap — reveal (or flag if flagMode active)
-        // Also blocks click after long-press
+        // =====================
+        //  Mouse events (desktop)
+        // =====================
+        let _touchActive = false; // flag to suppress contextmenu from touch
         div.addEventListener('click', (e) => {
-          if (_longPressPreventClick) {
-            _longPressPreventClick = false;
-            e.preventDefault();
-            return;
-          }
+          if (_touchActive) return;
           if (state.flagMode) {
             toggleFlag(r, c);
           } else {
             revealCell(r, c);
           }
         });
-
-        // Right-click — flag
         div.addEventListener('contextmenu', (e) => {
           e.preventDefault();
+          if (_touchActive) return;
           toggleFlag(r, c);
         });
+        div.addEventListener('dblclick', (e) => {
+          e.preventDefault();
+          chordReveal(r, c);
+        });
 
-        // Long-press on mobile — show flag popup
+        // =====================
+        //  Touch events (mobile)
+        // =====================
         let longPressTimer = null;
         let popupShown = false;
-        let highlightTarget = null; // 'cancel' | 'flag' | null
-        let _longPressPreventClick = false;
+        let popupChoice = null; // 'flag' | 'cancel' | null
 
-        function showFlagPopup(touchX, touchY) {
+        function showFlagPopup(tx, ty) {
           popupShown = true;
-          _longPressPreventClick = true;
           const popup = document.getElementById('flagPopup');
-          popup.style.left = touchX + 'px';
-          popup.style.top = (touchY - 16) + 'px';
+          const pw = popup.offsetWidth || 200;
+          const halfW = pw / 2 + 8;
+          if (tx < halfW) tx = halfW;
+          if (tx > window.innerWidth - halfW) tx = window.innerWidth - halfW;
+          // Always show above the finger
+          popup.style.transform = 'translate(-50%, -100%)';
+          popup.style.top = (ty - 12) + 'px';
+          popup.style.left = tx + 'px';
           popup.classList.add('show');
         }
 
@@ -1999,70 +2008,72 @@
           document.getElementById('flagPopup').classList.remove('show');
           document.querySelectorAll('.flag-popup-btn').forEach(b => b.classList.remove('active'));
           popupShown = false;
-          highlightTarget = null;
+          popupChoice = null;
         }
 
         div.addEventListener('touchstart', (e) => {
-          const touch = e.touches[0];
+          _touchActive = true;
+          const t = e.touches[0];
           longPressTimer = setTimeout(() => {
             longPressTimer = null;
-            e.preventDefault();
-            showFlagPopup(touch.clientX, touch.clientY);
+            // Before first click: don't show popup, don't flag
+            if (state.firstClick) return;
+            showFlagPopup(t.clientX, t.clientY);
           }, 400);
-        }, { passive: true });
+        }, { passive: false });
 
         div.addEventListener('touchmove', (e) => {
-          if (longPressTimer) {
-            clearTimeout(longPressTimer);
-            longPressTimer = null;
-          }
+          if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
           if (!popupShown) return;
           e.preventDefault();
-          const touch = e.touches[0];
+          const t = e.touches[0];
           const popup = document.getElementById('flagPopup');
-          const cancelBtn = document.getElementById('flagPopupCancel');
-          const flagBtn = document.getElementById('flagPopupFlag');
-          const rect = popup.getBoundingClientRect();
-          const isOverCancel = touch.clientX >= rect.left && touch.clientX <= rect.left + rect.width / 2 &&
-            touch.clientY >= rect.top && touch.clientY <= rect.bottom;
-          const isOverFlag = touch.clientX >= rect.left + rect.width / 2 && touch.clientX <= rect.right &&
-            touch.clientY >= rect.top && touch.clientY <= rect.bottom;
-          cancelBtn.classList.toggle('active', isOverCancel);
-          flagBtn.classList.toggle('active', isOverFlag);
-          highlightTarget = isOverFlag ? 'flag' : isOverCancel ? 'cancel' : null;
+          const r = popup.getBoundingClientRect();
+          // Generous vertical zone: from 40px above popup top to 80px below popup bottom
+          const zoneTop = r.top - 40;
+          const zoneBottom = r.bottom + 80;
+          const inZone = t.clientY >= zoneTop && t.clientY <= zoneBottom;
+          const overC = inZone && t.clientX >= r.left && t.clientX <= r.left + r.width / 2;
+          const overF = inZone && t.clientX >= r.left + r.width / 2 && t.clientX <= r.right;
+          document.getElementById('flagPopupCancel').classList.toggle('active', overC);
+          document.getElementById('flagPopupFlag').classList.toggle('active', overF);
+          popupChoice = overF ? 'flag' : overC ? 'cancel' : null;
         }, { passive: false });
 
         div.addEventListener('touchend', (e) => {
+          // Short tap — reveal or flag
           if (longPressTimer) {
             clearTimeout(longPressTimer);
             longPressTimer = null;
+            e.preventDefault();
+            if (state.flagMode) { toggleFlag(r, c); }
+            else { revealCell(r, c); }
+            setTimeout(() => { _touchActive = false; }, 300);
+            return;
           }
-          if (!popupShown) return;
-          e.preventDefault();
-          hideFlagPopup();
-          if (highlightTarget === 'flag') {
-            state.flagMode = true;
-            updateFlagModeIndicator();
-          } else if (highlightTarget === 'cancel') {
-            state.flagMode = false;
-            updateFlagModeIndicator();
-          } else {
-            toggleFlag(r, c);
+          // Long-press released
+          if (popupShown) {
+            e.preventDefault();
+            const choice = popupChoice;
+            hideFlagPopup();
+            if (choice === 'flag') { state.flagMode = true; updateFlagModeIndicator(); }
+            else if (choice === 'cancel') { state.flagMode = false; updateFlagModeIndicator(); }
+            else if (!state.firstClick) { toggleFlag(r, c); }
+            setTimeout(() => { _touchActive = false; }, 300);
+            return;
           }
+          // Timer expired during firstClick — start the game
+          if (state.firstClick) {
+            e.preventDefault();
+            revealCell(r, c);
+          }
+          _touchActive = false;
         });
 
         div.addEventListener('touchcancel', () => {
-          if (longPressTimer) {
-            clearTimeout(longPressTimer);
-            longPressTimer = null;
-          }
+          if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
           hideFlagPopup();
-        });
-
-        // Double-click / chord
-        div.addEventListener('dblclick', (e) => {
-          e.preventDefault();
-          chordReveal(r, c);
+          _touchActive = false;
         });
 
         boardEl.appendChild(div);
