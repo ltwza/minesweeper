@@ -1302,6 +1302,9 @@
     state.timerMode = diff.timeLimit > 0 ? 'countdown' : 'elapsed';
 
     state.board = createBoard(diff.rows, diff.cols, diff.mines);
+    // Reset flag mode when changing difficulty
+    state.flagMode = false;
+    flagToggle.classList.remove('active');
 
     if (!keepSave) clearSave();
     renderDifficultyBtns();
