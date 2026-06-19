@@ -510,33 +510,27 @@
       margin-top: 4px;
     }
 
-    /* Resume toast */
+    /* Resume toast - centered overlay */
     .resume-toast {
       position: fixed;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: #2c3e50;
-      color: #fff;
-      padding: 12px 24px;
-      border-radius: 10px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.4);
       z-index: 999;
       display: none;
       align-items: center;
-      gap: 14px;
-      font-size: 14px;
-      animation: slideDown 0.3s ease;
+      justify-content: center;
+      animation: fadeIn 0.2s ease;
     }
 
-    @keyframes slideDown {
+    @keyframes fadeIn {
       from {
-        transform: translateX(-50%) translateY(-30px);
         opacity: 0;
       }
 
       to {
-        transform: translateX(-50%) translateY(0);
         opacity: 1;
       }
     }
@@ -545,13 +539,52 @@
       display: flex;
     }
 
+    .resume-toast .toast-card {
+      background: #2c3e50;
+      color: #fff;
+      padding: 28px 32px 22px;
+      border-radius: 14px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+      text-align: center;
+      max-width: 320px;
+      width: 85%;
+      animation: popIn 0.25s ease;
+    }
+
+    @keyframes popIn {
+      from {
+        transform: scale(0.85);
+        opacity: 0;
+      }
+
+      to {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    .resume-toast .toast-text {
+      display: block;
+      font-size: 15px;
+      line-height: 1.5;
+      margin-bottom: 20px;
+    }
+
+    .resume-toast .toast-buttons {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+    }
+
     .resume-toast button {
-      padding: 5px 14px;
+      flex: 1;
+      max-width: 130px;
+      padding: 8px 0;
       border: none;
-      border-radius: 5px;
+      border-radius: 8px;
       font-weight: 600;
       cursor: pointer;
-      font-size: 13px;
+      font-size: 14px;
     }
 
     .resume-toast .btn-yes {
@@ -710,9 +743,13 @@
 
   <!-- Resume Toast -->
   <div class="resume-toast" id="resumeToast">
-    <span>📂 检测到未完成的游戏，是否继续？</span>
-    <button class="btn-yes" id="resumeYes">继续</button>
-    <button class="btn-no" id="resumeNo">重新开始</button>
+    <div class="toast-card">
+      <span class="toast-text">📂 检测到未完成的游戏，是否继续？</span>
+      <div class="toast-buttons">
+        <button class="btn-yes" id="resumeYes">继续</button>
+        <button class="btn-no" id="resumeNo">重新开始</button>
+      </div>
+    </div>
   </div>
 
   <script>
