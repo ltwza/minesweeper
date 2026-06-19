@@ -41,8 +41,30 @@
     h1 {
       font-size: 22px;
       color: #2c3e50;
-      margin-bottom: 8px;
       letter-spacing: 2px;
+    }
+
+    .title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      margin-bottom: 8px;
+    }
+
+    .btn-settings-top {
+      background: none;
+      border: none;
+      font-size: 22px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+      transition: background 0.15s;
+      line-height: 1;
+    }
+
+    .btn-settings-top:hover {
+      background: #dfe6e9;
     }
 
     .difficulty-bar {
@@ -282,6 +304,26 @@
       background: #8e44ad;
     }
 
+    .btn-leaderboard {
+      background: #e74c3c;
+      color: #fff;
+    }
+
+    .btn-leaderboard:hover {
+      background: #c0392b;
+    }
+
+    .lb-rule {
+      margin-top: 10px;
+      padding: 8px 10px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      font-size: 12px;
+      color: #666;
+      text-align: center;
+      line-height: 1.5;
+    }
+
     .btn-resume {
       background: #e67e22;
       color: #fff;
@@ -370,6 +412,37 @@
       color: #2c3e50;
       margin-bottom: 14px;
       text-align: center;
+    }
+
+    .records-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .records-tab {
+      flex: 1;
+      min-width: 60px;
+      padding: 6px 4px;
+      font-size: 12px;
+      font-weight: 700;
+      text-align: center;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      background: #ecf0f1;
+      color: #7f8c8d;
+      transition: all 0.15s;
+    }
+
+    .records-tab:hover {
+      background: #dfe6e9;
+    }
+
+    .records-tab.active {
+      background: #34495e;
+      color: #fff;
     }
 
     .modal table {
@@ -770,21 +843,6 @@
       accent-color: #2c3e50;
     }
 
-    .btn-settings {
-      background: none;
-      border: none;
-      font-size: 20px;
-      cursor: pointer;
-      padding: 4px 8px;
-      border-radius: 6px;
-      transition: background 0.2s;
-      line-height: 1;
-    }
-
-    .btn-settings:hover {
-      background: rgba(255, 255, 255, 0.15);
-    }
-
     @media (max-width: 500px) {
       .container {
         padding: 10px;
@@ -823,7 +881,10 @@
 <body>
 
   <div class="container">
-    <h1>💣 扫雷</h1>
+    <div class="title-row">
+      <h1>💣 扫雷</h1>
+      <button class="btn-settings-top" id="btnSettingsTop">⚙️</button>
+    </div>
 
     <div class="difficulty-bar">
       <button data-diff="easy" class="active">😊 简单 9×9</button>
@@ -849,27 +910,57 @@
       <button class="btn-resume" id="btnResume" style="display:none">▶ 继续游戏</button>
       <button class="btn-new" id="btnNew">🔄 新游戏</button>
       <button class="flag-toggle show" id="flagToggle"></button>
-      <button class="btn-records" id="btnRecords">🏆 通关记录</button>
-      <button class="btn-settings" id="btnSettings">⚙️</button>
+      <button class="btn-records" id="btnRecords">📋 通关记录</button>
+      <button class="btn-leaderboard" id="btnLeaderboard">🏆 排行榜</button>
     </div>
   </div>
 
-  <!-- Records Modal -->
+  <!-- Records Modal (recent clears, all difficulties mixed) -->
   <div class="modal-overlay" id="recordsModal">
     <div class="modal">
-      <h2>🏆 通关记录</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>难度</th>
-            <th>用时</th>
-            <th>日期</th>
-          </tr>
-        </thead>
-        <tbody id="recordsBody"></tbody>
-      </table>
-      <button class="modal-close" id="modalClose">关闭</button>
+      <h2>📋 通关记录</h2>
+      <div style="overflow-x:auto">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>难度</th>
+              <th>用时</th>
+              <th>日期</th>
+            </tr>
+          </thead>
+          <tbody id="recordsBody"></tbody>
+        </table>
+      </div>
+      <div class="lb-rule">按通关时间倒序，最新在前，最多显示 10 条</div>
+    </div>
+  </div>
+
+  <!-- Leaderboard Modal (per-difficulty tabs, no close button) -->
+  <div class="modal-overlay" id="leaderboardModal">
+    <div class="modal">
+      <h2>🏆 排行榜</h2>
+      <div class="records-tabs" id="lbTabs">
+        <button class="records-tab" data-tab="easy">🟢 简单</button>
+        <button class="records-tab" data-tab="medium">🟡 中等</button>
+        <button class="records-tab" data-tab="hard">🟠 困难</button>
+        <button class="records-tab" data-tab="hell">🔴 地狱</button>
+        <button class="records-tab" data-tab="custom">🎨 自定义</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>模式</th>
+              <th>用时</th>
+              <th>日期</th>
+            </tr>
+          </thead>
+          <tbody id="lbBody"></tbody>
+        </table>
+      </div>
+      <div class="lb-rule" id="lbRule"></div>
     </div>
   </div>
 
@@ -1608,7 +1699,7 @@
   }
 
   // ============================================================
-  //  Records
+  //  Records (flat, newest first, max 10)
   // ============================================================
   function getRecords() {
     try {
@@ -1621,7 +1712,7 @@
     const records = getRecords();
     const diff = DIFFICULTIES[state.difficulty];
     const elapsed = state.timer;
-    records.push({
+    records.unshift({
       difficulty: state.difficulty,
       difficultyLabel: diff.label,
       time: elapsed,
@@ -1632,8 +1723,6 @@
       cols: state.cols,
       mines: state.totalMines,
     });
-    // Sort by time ascending, keep top 10
-    records.sort((a, b) => a.time - b.time);
     const trimmed = records.slice(0, 10);
     try {
       localStorage.setItem(STORAGE_KEYS.records, JSON.stringify(trimmed));
@@ -1644,7 +1733,7 @@
     const records = getRecords();
     recordsBody.innerHTML = '';
     if (records.length === 0) {
-      recordsBody.innerHTML = '<tr><td colspan="4" class="empty-msg">暂无通关记录，快去玩一局吧！</td></tr>';
+      recordsBody.innerHTML = '<tr><td colspan="4" class="empty-msg">暂无通关记录</td></tr>';
     } else {
       records.forEach((rec, i) => {
         const tr = document.createElement('tr');
@@ -1656,6 +1745,115 @@
       });
     }
     recordsModal.classList.add('show');
+  }
+
+  // ============================================================
+  //  Leaderboard (per-difficulty buckets)
+  // ============================================================
+  const LB_STORAGE_KEY = 'ms_leaderboard';
+  const LB_LIMIT = 10;
+  const LB_KEYS = ['easy', 'medium', 'hard', 'hell', 'custom'];
+  const LB_RULES = {
+    easy: '🟢 简单 9×9 · 按用时从少到多排序，最快在前',
+    medium: '🟡 中等 16×16 · 按用时从少到多排序，最快在前',
+    hard: '🟠 困难 24×20 · 按用时从少到多排序，最快在前',
+    hell: '🔴 地狱 28×30 · 按用时从少到多排序，最快在前',
+    custom: '🎨 自定义 · 按通关时间倒序，最新在前',
+  };
+
+  function getLeaderboard() {
+    try {
+      const data = localStorage.getItem(LB_STORAGE_KEY);
+      if (!data) return {};
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed)) return {};
+      LB_KEYS.forEach(k => { if (!Array.isArray(parsed[k])) parsed[k] = []; });
+      return parsed;
+    } catch { return {}; }
+  }
+
+  function saveLeaderboard() {
+    const all = getLeaderboard();
+    const key = state.difficulty;
+    const diff = DIFFICULTIES[key];
+    const elapsed = state.timer;
+    const rec = {
+      time: elapsed,
+      timeStr: fmtTime(elapsed),
+      date: Date.now(),
+      dateStr: fmtDate(Date.now()),
+      rows: state.rows,
+      cols: state.cols,
+      mines: state.totalMines,
+      difficultyLabel: diff.label,
+    };
+    if (!all[key]) all[key] = [];
+    all[key].push(rec);
+    // Sort: fixed difficulties by time ascending, custom by date descending
+    if (key === 'custom') {
+      all[key].sort((a, b) => b.date - a.date);
+    } else {
+      all[key].sort((a, b) => a.time - b.time);
+    }
+    all[key] = all[key].slice(0, LB_LIMIT);
+    try {
+      localStorage.setItem(LB_STORAGE_KEY, JSON.stringify(all));
+    } catch { }
+  }
+
+  // Also save leaderboard when saving records
+  const _origSaveRecord = saveRecord;
+  saveRecord = function () {
+    _origSaveRecord();
+    saveLeaderboard();
+  };
+
+  const lbBody = document.getElementById('lbBody');
+  const lbRule = document.getElementById('lbRule');
+  const leaderboardModal = document.getElementById('leaderboardModal');
+  let _lbTab = null;
+
+  const lbTabRule = {
+    easy: '🟢 简单 9×9 · 按用时从少到多排序，取前 10 名',
+    medium: '🟡 中等 16×16 · 按用时从少到多排序，取前 10 名',
+    hard: '🟠 困难 24×20 · 按用时从少到多排序，取前 10 名',
+    hell: '🔴 地狱 28×30 · 按用时从少到多排序，取前 10 名',
+    custom: '🎨 自定义 · 按通关时间倒序，最新在前，取前 10 名',
+  };
+
+  function showLeaderboard(preferredTab) {
+    const all = getLeaderboard();
+    const tab = preferredTab || state.difficulty;
+    _lbTab = tab;
+    renderLeaderboardTab(all, tab);
+    document.querySelectorAll('#lbTabs .records-tab').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.tab === tab);
+    });
+    lbRule.textContent = lbTabRule[tab] || '';
+    leaderboardModal.classList.add('show');
+  }
+
+  function renderLeaderboardTab(all, tab) {
+    const records = (all[tab] || []);
+    lbBody.innerHTML = '';
+    if (records.length === 0) {
+      lbBody.innerHTML = '<tr><td colspan="4" class="empty-msg">暂无记录</td></tr>';
+      return;
+    }
+    records.forEach((rec, i) => {
+      const tr = document.createElement('tr');
+      let modeLabel;
+      if (tab === 'custom') {
+        modeLabel = `${rec.difficultyLabel || '自定义'} (${rec.cols}×${rec.rows}, ${rec.mines}雷)`;
+      } else {
+        modeLabel = `${rec.difficultyLabel} (${rec.cols}×${rec.rows})`;
+      }
+      tr.innerHTML = `<td>${i + 1}</td>
+        <td>${modeLabel}</td>
+        <td>${rec.timeStr}</td>
+        <td>${rec.dateStr}</td>`;
+      lbBody.appendChild(tr);
+    });
   }
 
   // ============================================================
@@ -1909,15 +2107,29 @@
     flagToggle.classList.toggle('active', state.flagMode);
   });
 
-  // Records button
-  document.getElementById('btnRecords').addEventListener('click', showRecords);
-
-  // Modal close
-  document.getElementById('modalClose').addEventListener('click', () => {
-    recordsModal.classList.remove('show');
+  // Leaderboard tab switching
+  document.getElementById('lbTabs').addEventListener('click', (e) => {
+    const btn = e.target.closest('.records-tab');
+    if (!btn) return;
+    const tab = btn.dataset.tab;
+    if (tab === _lbTab) return;
+    _lbTab = tab;
+    document.querySelectorAll('#lbTabs .records-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    renderLeaderboardTab(getLeaderboard(), tab);
+    lbRule.textContent = lbTabRule[tab] || '';
   });
+
+  document.getElementById('btnRecords').addEventListener('click', showRecords);
+  document.getElementById('btnLeaderboard').addEventListener('click', () => showLeaderboard());
+
+  // Modal close via overlay
   recordsModal.addEventListener('click', (e) => {
     if (e.target === recordsModal) recordsModal.classList.remove('show');
+  });
+
+  // Leaderboard close via overlay
+  leaderboardModal.addEventListener('click', (e) => {
+    if (e.target === leaderboardModal) leaderboardModal.classList.remove('show');
   });
 
   // ---- Custom modal ----
@@ -1975,7 +2187,7 @@
   const sfxLabel = document.getElementById('sfxVolLabel');
   const bgLabel = document.getElementById('bgVolLabel');
 
-  document.getElementById('btnSettings').addEventListener('click', () => {
+  document.getElementById('btnSettingsTop').addEventListener('click', () => {
     sfxSlider.value = Math.round(AudioManager._sfxVolume * 100);
     bgSlider.value = Math.round(AudioManager._bgVolume * 100);
     sfxLabel.textContent = sfxSlider.value;
@@ -2010,7 +2222,7 @@
   const vibrateTestBtn = document.getElementById('vibrateTestBtn');
 
   // Detect vibration support when settings opens
-  document.getElementById('btnSettings').addEventListener('click', () => {
+  document.getElementById('btnSettingsTop').addEventListener('click', () => {
     const s = 'vibrate' in navigator;
     vibrateStatus.textContent = s
       ? `✅ 支持 (API 存在)`
