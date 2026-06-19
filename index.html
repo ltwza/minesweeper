@@ -1674,7 +1674,15 @@
     // ============================================================
     //  Fireworks animation
     // ============================================================
+    let _fireworksAnimId = null;
+
     function startFireworks() {
+      // Cancel any previous fireworks animation
+      if (_fireworksAnimId) {
+        cancelAnimationFrame(_fireworksAnimId);
+        _fireworksAnimId = null;
+      }
+
       const canvas = document.getElementById('fireworksCanvas');
       const ctx = canvas.getContext('2d');
       canvas.width = window.innerWidth;
@@ -1686,7 +1694,6 @@
       const burstCount = 6;
       const particleCount = 60;
       let frame = 0;
-      let animId;
 
       // Create bursts at random positions
       for (let b = 0; b < burstCount; b++) {
@@ -1748,16 +1755,18 @@
           }
         }
 
-        if (alive || frame < 150) {
-          animId = requestAnimationFrame(animate);
+        if (alive || frame < 120) {
+          _fireworksAnimId = requestAnimationFrame(animate);
         } else {
-          canvas.classList.remove('active');
+          // Clear BEFORE hiding — clearRect doesn't work on hidden canvas
           ctx.clearRect(0, 0, canvas.width, canvas.height);
+          canvas.width = canvas.width; // force full canvas reset
+          canvas.classList.remove('active');
+          _fireworksAnimId = null;
         }
       }
 
-      if (animId) cancelAnimationFrame(animId);
-      animate();
+      _fireworksAnimId = requestAnimationFrame(animate);
     }
 
     // ============================================================
