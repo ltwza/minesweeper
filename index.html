@@ -101,19 +101,18 @@
     }
 
     .info-bar {
-      display: flex;
-      justify-content: space-between;
+      display: inline-flex;
+      justify-content: center;
       align-items: center;
-      width: 100%;
-      margin-bottom: 10px;
-      font-size: 14px;
+      margin: 0 auto 10px;
+      font-size: 13px;
       font-weight: 600;
       background: #34495e;
       color: #fff;
       padding: 6px 14px;
       border-radius: 6px;
       min-height: 36px;
-      gap: 10px;
+      gap: 20px;
     }
 
     .info-bar .mine-count {
@@ -316,6 +315,84 @@
       background: #c0392b;
     }
 
+    .help-text {
+      margin-top: 8px;
+      font-size: 11px;
+      color: #999;
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    /* Mobile long-press flag popup */
+    .flag-popup {
+      display: none;
+      position: fixed;
+      z-index: 2000;
+      background: rgba(44, 62, 80, 0.95);
+      border-radius: 10px;
+      padding: 6px 8px;
+      gap: 8px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+      transform: translate(-50%, -100%);
+      white-space: nowrap;
+      backdrop-filter: blur(4px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .flag-popup.show {
+      display: flex;
+    }
+
+    .flag-popup-btn {
+      padding: 10px 16px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: default;
+      color: #fff;
+      background: rgba(255, 255, 255, 0.1);
+      transition: background 0.1s;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .flag-popup-btn.active {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .flag-popup-btn-flag {
+      background: #f39c12;
+      color: #fff;
+    }
+
+    .flag-popup-btn-flag.active {
+      background: #e67e22;
+      box-shadow: 0 0 0 2px #fff, 0 0 0 4px #e67e22;
+    }
+
+    /* Flag mode indicator (mobile) */
+    .flag-mode-indicator {
+      display: none;
+      position: fixed;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1500;
+      background: #f39c12;
+      color: #fff;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+      pointer-events: none;
+    }
+
+    .flag-mode-indicator.show {
+      display: block;
+    }
+
     .lb-rule {
       margin-top: 10px;
       padding: 8px 10px;
@@ -336,34 +413,116 @@
       background: #d35400;
     }
 
-    .flag-toggle {
-      display: none;
-      padding: 6px 14px;
-      border: none;
-      border-radius: 6px;
+    .btn-save {
+      background: #2ecc71;
+      color: #fff;
+    }
+
+    .btn-save:hover {
+      background: #27ae60;
+    }
+
+    /* Save modal */
+    .save-slot {
+      display: flex;
+      align-items: center;
+      padding: 8px 10px;
+      border-bottom: 1px solid #eee;
+      gap: 6px;
+    }
+
+    .save-slot:last-child {
+      border-bottom: none;
+    }
+
+    .save-slot .slot-info {
+      flex: 1;
+      min-width: 0;
       font-size: 13px;
+    }
+
+    .save-slot .slot-name {
+      font-weight: 600;
+      color: #2c3e50;
+      border: none;
+      background: none;
+      font-size: 13px;
+      padding: 0;
+      text-align: left;
+      width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .save-slot input.slot-name {
+      cursor: pointer;
+    }
+
+    .save-slot .slot-name:focus {
+      background: #ecf0f1;
+      border-radius: 3px;
+      padding: 2px 4px;
+      outline: none;
+    }
+
+    .save-slot .slot-meta {
+      font-size: 11px;
+      color: #999;
+    }
+
+    .save-slot .slot-actions {
+      display: flex;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .save-slot .slot-actions button {
+      padding: 3px 8px;
+      border: none;
+      border-radius: 4px;
+      font-size: 11px;
       font-weight: 600;
       cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .save-slot .slot-load {
+      background: #3498db;
+      color: #fff;
+    }
+
+    .save-slot .slot-load:hover {
+      background: #2980b9;
+    }
+
+    .save-slot .slot-overwrite {
       background: #f39c12;
       color: #fff;
-      transition: all 0.15s;
     }
 
-    .flag-toggle.active {
-      background: #e67e22;
-      box-shadow: 0 0 0 2px #fff, 0 0 0 4px #e67e22;
+    .save-slot .slot-overwrite:hover {
+      background: #d68910;
     }
 
-    .flag-toggle.show {
-      display: inline-block;
+    .save-slot .slot-delete {
+      background: #e74c3c;
+      color: #fff;
     }
 
-    .flag-toggle::before {
-      content: '🚩 插旗';
+    .save-slot .slot-delete:hover {
+      background: #c0392b;
     }
 
-    .flag-toggle.active::before {
-      content: '🚩 插旗中';
+    .save-slot .slot-save {
+      background: #2ecc71;
+      color: #fff;
+      padding: 6px 16px;
+      font-size: 13px;
+    }
+
+    .save-slot .slot-save:hover {
+      background: #27ae60;
     }
 
     /* Modal */
@@ -912,10 +1071,20 @@
     <div class="bottom-bar">
       <button class="btn-resume" id="btnResume" style="display:none">▶ 继续游戏</button>
       <button class="btn-new" id="btnNew">🔄 新游戏</button>
-      <button class="flag-toggle show" id="flagToggle"></button>
+      <button class="btn-save" id="btnSave">💾 存档</button>
       <button class="btn-records" id="btnRecords">📋 通关记录</button>
       <button class="btn-leaderboard" id="btnLeaderboard">🏆 排行榜</button>
     </div>
+    <div class="help-text">💡 左键揭格 · 右键插旗 · 长按弹出插旗菜单 · 双击自动揭周围</div>
+  </div>
+
+  <!-- Flag mode indicator -->
+  <div class="flag-mode-indicator" id="flagModeIndicator">⛳ 插旗模式</div>
+
+  <!-- Flag popup (mobile long-press menu) -->
+  <div class="flag-popup" id="flagPopup">
+    <div class="flag-popup-btn" id="flagPopupCancel">✋ 点开</div>
+    <div class="flag-popup-btn flag-popup-btn-flag" id="flagPopupFlag">⛳ 插旗</div>
   </div>
 
   <!-- Records Modal (recent clears, all difficulties mixed) -->
@@ -936,6 +1105,14 @@
         </table>
       </div>
       <div class="lb-rule">按通关时间倒序，最新在前，最多显示 10 条</div>
+    </div>
+  </div>
+
+  <!-- Save Slots Modal -->
+  <div class="modal-overlay" id="saveModal">
+    <div class="modal">
+      <h2>💾 存档管理</h2>
+      <div id="saveList" style="max-height:55vh;overflow-y:auto;"></div>
     </div>
   </div>
 
@@ -1089,6 +1266,7 @@
     save: 'ms_save_state',
     custom: 'ms_custom_config',
     settings: 'ms_settings',
+    saves: 'ms_saves',
   };
 
   // ============================================================
@@ -1180,7 +1358,7 @@
     timer: 0,        // elapsed seconds (or countdown from timeLimit)
     timerInterval: null,
     firstClick: true,
-    flagMode: false,  // mobile: toggle flag mode
+    flagMode: false,  // mobile: popup toggles persistent flag mode
     gameOver: false,
     timeLimit: 0,     // 0 = no limit
     timerMode: 'elapsed', // 'elapsed' or 'countdown'
@@ -1194,7 +1372,6 @@
   const mineCountEl = document.getElementById('mineCount');
   const timerEl = document.getElementById('timer');
   const statusMsg = document.getElementById('statusMsg');
-  const flagToggle = document.getElementById('flagToggle');
   const recordsModal = document.getElementById('recordsModal');
   const recordsBody = document.getElementById('recordsBody');
 
@@ -1433,6 +1610,14 @@
     return size;
   }
 
+  function updateFlagModeIndicator() {
+    const el = document.getElementById('flagModeIndicator');
+    if (el) {
+      if (state.flagMode) el.classList.add('show');
+      else el.classList.remove('show');
+    }
+  }
+
   // ============================================================
   //  Board logic
   // ============================================================
@@ -1557,11 +1742,9 @@
     state.timeLimit = diff.timeLimit;
     state.timerMode = diff.timeLimit > 0 ? 'countdown' : 'elapsed';
 
-    state.board = createBoard(diff.rows, diff.cols, diff.mines);
-    // Reset flag mode when changing difficulty
     state.flagMode = false;
-    flagToggle.classList.remove('active');
-
+    updateFlagModeIndicator();
+    state.board = createBoard(diff.rows, diff.cols, diff.mines);
     if (!keepSave) clearSave();
     renderDifficultyBtns();
     updateInfoBar();
@@ -1776,9 +1959,14 @@
           }
         }
 
-        // Click (left-click or tap)
+        // Click / tap — reveal (or flag if flagMode active)
+        // Also blocks click after long-press
         div.addEventListener('click', (e) => {
-          e.preventDefault();
+          if (_longPressPreventClick) {
+            _longPressPreventClick = false;
+            e.preventDefault();
+            return;
+          }
           if (state.flagMode) {
             toggleFlag(r, c);
           } else {
@@ -1786,10 +1974,89 @@
           }
         });
 
-        // Right-click (desktop flag)
+        // Right-click — flag
         div.addEventListener('contextmenu', (e) => {
           e.preventDefault();
           toggleFlag(r, c);
+        });
+
+        // Long-press on mobile — show flag popup
+        let longPressTimer = null;
+        let popupShown = false;
+        let highlightTarget = null; // 'cancel' | 'flag' | null
+        let _longPressPreventClick = false;
+
+        function showFlagPopup(touchX, touchY) {
+          popupShown = true;
+          _longPressPreventClick = true;
+          const popup = document.getElementById('flagPopup');
+          popup.style.left = touchX + 'px';
+          popup.style.top = (touchY - 16) + 'px';
+          popup.classList.add('show');
+        }
+
+        function hideFlagPopup() {
+          document.getElementById('flagPopup').classList.remove('show');
+          document.querySelectorAll('.flag-popup-btn').forEach(b => b.classList.remove('active'));
+          popupShown = false;
+          highlightTarget = null;
+        }
+
+        div.addEventListener('touchstart', (e) => {
+          const touch = e.touches[0];
+          longPressTimer = setTimeout(() => {
+            longPressTimer = null;
+            e.preventDefault();
+            showFlagPopup(touch.clientX, touch.clientY);
+          }, 400);
+        }, { passive: true });
+
+        div.addEventListener('touchmove', (e) => {
+          if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+          }
+          if (!popupShown) return;
+          e.preventDefault();
+          const touch = e.touches[0];
+          const popup = document.getElementById('flagPopup');
+          const cancelBtn = document.getElementById('flagPopupCancel');
+          const flagBtn = document.getElementById('flagPopupFlag');
+          const rect = popup.getBoundingClientRect();
+          const isOverCancel = touch.clientX >= rect.left && touch.clientX <= rect.left + rect.width / 2 &&
+            touch.clientY >= rect.top && touch.clientY <= rect.bottom;
+          const isOverFlag = touch.clientX >= rect.left + rect.width / 2 && touch.clientX <= rect.right &&
+            touch.clientY >= rect.top && touch.clientY <= rect.bottom;
+          cancelBtn.classList.toggle('active', isOverCancel);
+          flagBtn.classList.toggle('active', isOverFlag);
+          highlightTarget = isOverFlag ? 'flag' : isOverCancel ? 'cancel' : null;
+        }, { passive: false });
+
+        div.addEventListener('touchend', (e) => {
+          if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+          }
+          if (!popupShown) return;
+          e.preventDefault();
+          hideFlagPopup();
+          if (highlightTarget === 'flag') {
+            state.flagMode = true;
+            updateFlagModeIndicator();
+          } else if (highlightTarget === 'cancel') {
+            state.flagMode = false;
+            updateFlagModeIndicator();
+          } else {
+            toggleFlag(r, c);
+          }
+        });
+
+        div.addEventListener('touchcancel', () => {
+          if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+          }
+          hideFlagPopup();
         });
 
         // Double-click / chord
@@ -2058,43 +2325,261 @@
   }
 
   // ============================================================
-  //  Save / Load (localStorage)
+  //  Save Slots System (up to 10, slot 0 = auto-save)
   // ============================================================
-  function autoSave() {
-    if (state.status === 'won' || state.status === 'lost') return;
-    if (state.firstClick) return; // nothing to save yet
-    const saveData = {
-      difficulty: state.difficulty,
-      board: state.board.map(row => row.map(cell => ({
-        mine: cell.mine,
-        revealed: cell.revealed,
-        flagged: cell.flagged,
-        adjacent: cell.adjacent,
-        _hit: cell._hit || false,
-      }))),
-      timer: state.timer,
-      flagsPlaced: state.flagsPlaced,
-      status: state.status,
-      gameOver: state.gameOver,
-      firstClick: state.firstClick,
-      timeLimit: state.timeLimit,
-      timerMode: state.timerMode,
-      totalMines: state.totalMines,
-      rows: state.rows,
-      cols: state.cols,
-      timestamp: Date.now(),
-    };
+  const MAX_SAVES = 10;
+
+  function getSaves() {
     try {
-      localStorage.setItem(STORAGE_KEYS.save, JSON.stringify(saveData));
-    } catch { }
+      const data = localStorage.getItem(STORAGE_KEYS.saves);
+      return data ? JSON.parse(data) : [];
+    } catch { return []; }
   }
 
-  function clearSave() {
-    try { localStorage.removeItem(STORAGE_KEYS.save); } catch { }
+  function putSaves(saves) {
+    try { localStorage.setItem(STORAGE_KEYS.saves, JSON.stringify(saves)); } catch { }
+  }
+
+  function buildSaveData() {
+    return {
+      difficulty: state.difficulty,
+      difficultyLabel: DIFFICULTIES[state.difficulty].label,
+      board: state.board.map(row => row.map(cell => ({
+        mine: cell.mine, revealed: cell.revealed, flagged: cell.flagged,
+        adjacent: cell.adjacent, _hit: cell._hit || false,
+      }))),
+      timer: state.timer, flagsPlaced: state.flagsPlaced,
+      status: state.status, gameOver: state.gameOver,
+      firstClick: state.firstClick, timeLimit: state.timeLimit,
+      timerMode: state.timerMode, totalMines: state.totalMines,
+      rows: state.rows, cols: state.cols,
+      timestamp: Date.now(),
+    };
+  }
+
+  function autoSave() {
+    if (state.status === 'won' || state.status === 'lost') return;
+    if (state.firstClick) return;
+    const saves = getSaves();
+    const data = buildSaveData();
+    saves[0] = { name: '自动存档', auto: true, ...data };
+    putSaves(saves);
   }
 
   function hasSavedGame() {
-    try { return localStorage.getItem(STORAGE_KEYS.save) !== null; } catch { return false; }
+    const saves = getSaves();
+    return saves.length > 0 && !!saves[0] && saves[0].status === 'playing';
+  }
+
+  function loadSaveSlot(slotIndex) {
+    const saves = getSaves();
+    const slot = saves[slotIndex];
+    if (!slot) return false;
+    state.difficulty = slot.difficulty;
+    state.rows = slot.rows;
+    state.cols = slot.cols;
+    state.totalMines = slot.totalMines;
+    state.timer = slot.timer;
+    state.flagsPlaced = slot.flagsPlaced;
+    state.status = slot.status;
+    state.gameOver = slot.gameOver;
+    state.firstClick = slot.firstClick;
+    state.timeLimit = slot.timeLimit;
+    state.timerMode = slot.timerMode;
+    state.board = slot.board.map(row => row.map(cell => ({ ...cell })));
+    state.revealedCount = 0;
+    state.board.forEach(r => r.forEach(c => { if (c.revealed) state.revealedCount++; }));
+    if (state.difficulty === 'custom') applyCustomConfigToDifficulty();
+    document.getElementById('btnResume').style.display = 'none';
+    renderDifficultyBtns();
+    renderBoard();
+    updateInfoBar();
+    if (state.timeLimit > 0 && state.timerMode === 'elapsed') {
+      state.timer = 0;
+      state.timerMode = 'countdown';
+    }
+    statusMsg.textContent = '游戏进行中...';
+    statusMsg.className = 'status-msg';
+    if (state.timerInterval) clearInterval(state.timerInterval);
+    startTimer();
+    return true;
+  }
+
+  function renderSaveModal() {
+    const saves = getSaves();
+    const list = document.getElementById('saveList');
+    list.innerHTML = '';
+
+    // 1) Always render slot 0 (auto-save)
+    function renderSlot(i, slot) {
+      const div = document.createElement('div');
+      div.className = 'save-slot';
+
+      const isEmpty = !slot || slot.status === 'cleared';
+
+      if (isEmpty) {
+        const info = document.createElement('div');
+        info.className = 'slot-info';
+        const nameEl = document.createElement('div');
+        nameEl.textContent = i === 0 ? '自动存档' : `存档${i + 1}`;
+        nameEl.style.color = '#bbb';
+        nameEl.style.fontWeight = '600';
+        info.appendChild(nameEl);
+        const meta = document.createElement('div');
+        meta.className = 'slot-meta';
+        meta.textContent = '空';
+        info.appendChild(meta);
+        div.appendChild(info);
+
+        if (i > 0) {
+          const actions = document.createElement('div');
+          actions.className = 'slot-actions';
+          const saveBtn = document.createElement('button');
+          saveBtn.className = 'slot-save';
+          saveBtn.textContent = '保存';
+          saveBtn.addEventListener('click', () => {
+            if (state.firstClick) return;
+            const s = getSaves();
+            const data = buildSaveData();
+            s[i] = { name: `存档${i + 1}`, ...data };
+            putSaves(s);
+            renderSaveModal();
+          });
+          actions.appendChild(saveBtn);
+          div.appendChild(actions);
+        }
+      } else {
+        const info = document.createElement('div');
+        info.className = 'slot-info';
+        if (i === 0) {
+          // Auto-save: plain div, no interaction
+          const nameDiv = document.createElement('div');
+          nameDiv.className = 'slot-name';
+          nameDiv.textContent = slot.name || '自动存档';
+          nameDiv.style.color = '#2c3e50';
+          nameDiv.style.fontWeight = '600';
+          info.appendChild(nameDiv);
+        } else {
+          const nameInput = document.createElement('input');
+          nameInput.className = 'slot-name';
+          nameInput.value = slot.name || `存档${i + 1}`;
+          nameInput.readOnly = true;
+          nameInput.addEventListener('dblclick', () => {
+            nameInput.readOnly = false;
+            nameInput.focus();
+            nameInput.select();
+          });
+          nameInput.addEventListener('blur', () => {
+            nameInput.readOnly = true;
+            const s = getSaves();
+            if (s[i]) { s[i].name = nameInput.value || `存档${i + 1}`; putSaves(s); }
+          });
+          nameInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') nameInput.blur();
+          });
+          info.appendChild(nameInput);
+        }
+
+        const meta = document.createElement('div');
+        meta.className = 'slot-meta';
+        const diffLabel = slot.difficultyLabel || slot.difficulty;
+        const mineInfo = slot.totalMines ? `${slot.totalMines}雷 ` : '';
+        meta.textContent = `${diffLabel} ${mineInfo}(${slot.cols}×${slot.rows}) · ${new Date(slot.timestamp).toLocaleString().replace(/:\d{2}$/, '')}`;
+        info.appendChild(meta);
+        div.appendChild(info);
+
+        const actions = document.createElement('div');
+        actions.className = 'slot-actions';
+
+        if (slot.status === 'playing') {
+          const loadBtn = document.createElement('button');
+          loadBtn.className = 'slot-load';
+          loadBtn.textContent = '读取';
+          loadBtn.addEventListener('click', () => {
+            if (state.status === 'playing') {
+              showConfirm('当前游戏未完成，读取存档将覆盖当前进度，确定？').then(ok => {
+                if (ok) { loadSaveSlot(i); document.getElementById('saveModal').classList.remove('show'); }
+              });
+            } else {
+              loadSaveSlot(i);
+              document.getElementById('saveModal').classList.remove('show');
+            }
+          });
+          actions.appendChild(loadBtn);
+        }
+
+        if (i > 0) {
+          const overwriteBtn = document.createElement('button');
+          overwriteBtn.className = 'slot-overwrite';
+          overwriteBtn.textContent = '覆盖';
+          overwriteBtn.addEventListener('click', () => {
+            if (state.firstClick) return;
+            const s = getSaves();
+            const data = buildSaveData();
+            s[i] = { ...s[i], ...data };
+            putSaves(s);
+            renderSaveModal();
+          });
+          actions.appendChild(overwriteBtn);
+        }
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'slot-delete';
+        deleteBtn.textContent = '删除';
+        deleteBtn.addEventListener('click', async () => {
+          if (i === 0) {
+            if (!await showConfirm('清空自动存档？')) return;
+            const s = getSaves();
+            s[0] = { name: '自动存档', auto: true, status: 'cleared', board: [] };
+            putSaves(s);
+          } else {
+            if (!await showConfirm(`删除「${slot.name}」？`)) return;
+            const s = getSaves();
+            s.splice(i, 1);
+            putSaves(s);
+          }
+          renderSaveModal();
+        });
+        actions.appendChild(deleteBtn);
+
+        div.appendChild(actions);
+      }
+      list.appendChild(div);
+    }
+
+    // Slot 0: auto-save (always shown)
+    renderSlot(0, saves[0]);
+
+    // Collect non-empty manual saves
+    const manualSlots = [];
+    for (let i = 1; i < MAX_SAVES; i++) {
+      if (saves[i] && saves[i].status !== 'cleared') {
+        manualSlots.push(i);
+      }
+    }
+
+    // Show all non-empty manual saves
+    manualSlots.forEach(i => renderSlot(i, saves[i]));
+
+    // Show at most ONE empty slot for new saves (if space remains)
+    const usedCount = manualSlots.length;
+    if (usedCount < MAX_SAVES - 1) {
+      // Find the first free index among slots 1..MAX_SAVES-1
+      let freeIdx = 1;
+      while (freeIdx < MAX_SAVES && saves[freeIdx] && saves[freeIdx].status !== 'cleared') {
+        freeIdx++;
+      }
+      // Don't render another empty slot if we already showed one
+      if (!manualSlots.includes(freeIdx)) {
+        renderSlot(freeIdx, null);
+      }
+    }
+  }
+
+  function clearSave() {
+    const saves = getSaves();
+    saves[0] = { name: '自动存档', auto: true, status: 'cleared', board: [] };
+    putSaves(saves);
   }
 
   // ---- Confirm dialog (replaces native confirm()) ----
@@ -2154,47 +2639,6 @@
     }
   }
 
-  function loadSavedGame() {
-    try {
-      const data = localStorage.getItem(STORAGE_KEYS.save);
-      if (!data) return false;
-      const saved = JSON.parse(data);
-
-      // Restore state
-      state.difficulty = saved.difficulty;
-      state.rows = saved.rows || saved.board.length;
-      state.cols = saved.cols || saved.board[0].length;
-      state.totalMines = saved.totalMines || DIFFICULTIES[saved.difficulty].mines;
-      state.board = saved.board;
-      state.timer = saved.timer;
-      state.flagsPlaced = saved.flagsPlaced;
-      state.status = saved.status;
-      state.gameOver = saved.gameOver;
-      state.firstClick = saved.firstClick;
-      state.timeLimit = saved.timeLimit;
-      state.timerMode = saved.timerMode;
-
-      renderDifficultyBtns();
-      updateInfoBar();
-      if (state.status === 'playing') {
-        startTimer();
-        statusMsg.textContent = '游戏进行中...';
-        statusMsg.className = 'status-msg';
-      } else if (state.status === 'won') {
-        statusMsg.textContent = '🎉 恭喜通关！';
-        statusMsg.className = 'status-msg win';
-      } else if (state.status === 'lost') {
-        statusMsg.textContent = '💥 游戏结束';
-        statusMsg.className = 'status-msg lose';
-      }
-      renderBoard();
-      return true;
-    } catch {
-      clearSave();
-      return false;
-    }
-  }
-
   // ============================================================
   //  Event Bindings
   // ============================================================
@@ -2230,10 +2674,15 @@
     initGame(state.difficulty);
   });
 
-  // Flag toggle (mobile)
-  flagToggle.addEventListener('click', () => {
-    state.flagMode = !state.flagMode;
-    flagToggle.classList.toggle('active', state.flagMode);
+  // Save button
+  document.getElementById('btnSave').addEventListener('click', () => {
+    renderSaveModal();
+    document.getElementById('saveModal').classList.add('show');
+  });
+  document.getElementById('saveModal').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('saveModal')) {
+      document.getElementById('saveModal').classList.remove('show');
+    }
   });
 
   // Leaderboard tab switching
@@ -2285,7 +2734,7 @@
   const resumeToast = document.getElementById('resumeToast');
   document.getElementById('resumeYes').addEventListener('click', () => {
     resumeToast.classList.remove('show');
-    if (loadSavedGame()) {
+    if (loadSaveSlot(0)) {
       document.getElementById('btnResume').style.display = 'none';
     } else {
       initGame(state.difficulty);
@@ -2298,15 +2747,8 @@
   });
 
   document.getElementById('btnResume').addEventListener('click', () => {
-    loadSavedGame();
+    loadSaveSlot(0);
     document.getElementById('btnResume').style.display = 'none';
-  });
-
-  // Keyboard shortcut: F for flag toggle
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'f' || e.key === 'F') {
-      flagToggle.click();
-    }
   });
 
   // ---- Settings modal ----
@@ -2531,6 +2973,9 @@
   })();
 
   window.addEventListener('DOMContentLoaded', () => {
+    // Legacy cleanup: remove old single-save format
+    try { localStorage.removeItem(STORAGE_KEYS.save); } catch { }
+
     // Restore saved settings (volume, track)
     loadSettings();
 
@@ -2547,13 +2992,9 @@
       _bgmReady = true;
     });
 
-    // Check saved game first — don't init yet if we need to resume
+    // Check saved game — load auto-save if exists
     if (hasSavedGame()) {
-      // Load saved data to restore difficulty settings, but don't clear save
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEYS.save));
-      applyCustomConfigToDifficulty();
-      initGame(saved.difficulty, true);
-      resumeToast.classList.add('show');
+      loadSaveSlot(0);
     } else {
       initGame('easy');
     }
