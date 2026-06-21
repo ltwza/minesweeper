@@ -90,6 +90,28 @@
 - 插旗模式下点击格子自动插旗，屏幕顶部显示黄色指示条
 - 切换难度自动退出插旗模式
 
+## 本地测试（手机端）
+### 开启 HTTP 服务器
+```bash
+cd d:\cocos\cocosProjects\trae_test
+python -m http.server 8080
+```
+
+### 生成二维码（手机扫码访问）
+```bash
+# 在另一个终端执行：
+$ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -match '^192\.' }).IPAddress
+start "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=http://$ip`:8080"
+```
+> 手机和电脑需在**同一 WiFi** 下。
+
+### 关闭服务器
+```bash
+# 查找并杀掉占用 8080 端口的进程
+netstat -ano | findstr :8080
+taskkill /PID <进程ID> /F
+```
+
 ## 已知约定
 - confirm 弹窗已替换为自定义 showConfirm Promise
 - 所有 CSS 在 `<style>` 标签内，JS 在 `<script>` 标签内，均在 index.html
